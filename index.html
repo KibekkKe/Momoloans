@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Loan Application - Uganda</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 400px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0px 0px 10px #ccc;
+    }
+
+    h2 {
+      text-align: center;
+      color: #333;
+    }
+
+    input, select, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+
+    button {
+      background-color: green;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: darkgreen;
+    }
+
+    .note {
+      font-size: 12px;
+      color: gray;
+      margin-top: 10px;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+  <h2>Loan Application</h2>
+
+  <form action="/submit" method="POST">
+    
+    <input type="text" name="name" placeholder="Full Name" required>
+
+    <input type="tel" name="phone" placeholder="Phone Number (e.g. 07XXXXXXXX)" required>
+
+    <select name="network" required>
+      <option value="">Select Network</option>
+      <option>MTN Uganda</option>
+      <option>Airtel Uganda</option>
+    </select>
+
+    <input type="number" name="amount" placeholder="Loan Amount (UGX)" required>
+
+    <input type="text" name="nid" placeholder="National ID Number" required>
+
+    <button type="submit">Apply Now</button>
+
+  </form>
+
+  <p class="note">
+    Ensure your details are correct before submitting.
+  </p>
+</div>
+
+</body>
+</html>
