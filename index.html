@@ -1,87 +1,99 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Loan Application - Uganda</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f2f2f2;
-      padding: 20px;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MoMo Loan Application</title>
 
-    .container {
-      max-width: 400px;
-      margin: auto;
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0px 0px 10px #ccc;
-    }
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #ffcc00;
+    margin: 0;
+    padding: 0;
+  }
 
-    h2 {
-      text-align: center;
-      color: #333;
-    }
+  .container {
+    max-width: 400px;
+    margin: 40px auto;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  }
 
-    input, select, button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 10px;
-      border-radius: 5px;
-      border: 1px solid #ccc;
-      font-size: 16px;
-    }
+  .logo {
+    text-align: center;
+    font-size: 22px;
+    font-weight: bold;
+    color: #ffcc00;
+    margin-bottom: 10px;
+  }
 
-    button {
-      background-color: green;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
+  h2 {
+    text-align: center;
+    color: #333;
+  }
 
-    button:hover {
-      background-color: darkgreen;
-    }
+  input, select {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+  }
 
-    .note {
-      font-size: 12px;
-      color: gray;
-      margin-top: 10px;
-      text-align: center;
-    }
-  </style>
+  button {
+    width: 100%;
+    padding: 14px;
+    background: #ffcc00;
+    color: black;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: #e6b800;
+  }
+
+  .note {
+    font-size: 12px;
+    text-align: center;
+    color: gray;
+    margin-top: 10px;
+  }
+</style>
 </head>
 
 <body>
 
 <div class="container">
+  <div class="logo">MTN MoMo Uganda</div>
   <h2>Loan Application</h2>
 
-  <form action="/submit" method="POST">
-    
+  <form action="/apply" method="POST">
     <input type="text" name="name" placeholder="Full Name" required>
-
-    <input type="tel" name="phone" placeholder="Phone Number (e.g. 07XXXXXXXX)" required>
+    <input type="text" name="phone" placeholder="Phone Number (07XXXXXXXX)" required>
 
     <select name="network" required>
       <option value="">Select Network</option>
-      <option>MTN Uganda</option>
-      <option>Airtel Uganda</option>
+      <option value="MTN">MTN</option>
+      <option value="Airtel">Airtel</option>
     </select>
 
     <input type="number" name="amount" placeholder="Loan Amount (UGX)" required>
-
-    <input type="text" name="nid" placeholder="National ID Number" required>
+    <input type="text" name="nationalId" placeholder="National ID Number" required>
 
     <button type="submit">Apply Now</button>
-
   </form>
 
-  <p class="note">
+  <div class="note">
     Ensure your details are correct before submitting.
-  </p>
+  </div>
 </div>
 
 </body>
