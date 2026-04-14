@@ -1,22 +1,21 @@
 const express = require("express");
-const bodyParser = require("body-parser");
 const axios = require("axios");
 const path = require("path");
 
 const app = express();
 
 // Middleware
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// 🔥 YOUR DETAILS
-const BOT_TOKEN = "8787983011:AAHvdmEO9FD7vfi7KVC4XJYdipMKV4BR0Zk";
-const CHAT_ID = "8648631571";
+// 🔐 USE ENV VARIABLES (IMPORTANT)
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const CHAT_ID = process.env.CHAT_ID;
 
 // Serve frontend
 app.use(express.static(path.join(__dirname, "public")));
 
-// 👉 ROOT ROUTE (IMPORTANT FIX)
+// Test route (IMPORTANT for Railway)
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
@@ -41,16 +40,15 @@ app.post("/apply", async (req, res) => {
       text: message,
     });
 
-    res.send("Application submitted successfully!");
+    res.send("✅ Application submitted successfully!");
   } catch (error) {
     console.error(error.response?.data || error.message);
-    res.status(500).send("Error sending application.");
+    res.status(500).send("❌ Error sending application.");
   }
 });
 
-// ✅ IMPORTANT FIX FOR RAILWAY
+// PORT for Railway
 const PORT = process.env.PORT || 8080;
-
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
