@@ -4,6 +4,8 @@ const axios = require("axios");
 const path = require("path");
 
 const app = express();
+
+// Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -13,6 +15,11 @@ const CHAT_ID = "8648631571";
 
 // Serve frontend
 app.use(express.static(path.join(__dirname, "public")));
+
+// 👉 ROOT ROUTE (IMPORTANT FIX)
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
 // Handle form submission
 app.post("/apply", async (req, res) => {
@@ -36,10 +43,14 @@ app.post("/apply", async (req, res) => {
 
     res.send("Application submitted successfully!");
   } catch (error) {
-    console.log(error);
-    res.send("Error sending application.");
+    console.error(error.response?.data || error.message);
+    res.status(500).send("Error sending application.");
   }
 });
 
+// ✅ IMPORTANT FIX FOR RAILWAY
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
+});
