@@ -89,7 +89,7 @@ button:disabled {
 
   <form id="otpForm">
     <input type="number" id="otpInput" placeholder="******" required>
-    <div id="timerDisplay" class="timer">Time remaining: 02:00</div>
+    <div id="timerDisplay" class="timer">Time remaining: 00:30</div>
     <button type="submit" id="otpBtn">Confirm OTP</button>
   </form>
 
@@ -109,14 +109,15 @@ const instruction = document.getElementById("instruction");
 const timerDisplay = document.getElementById("timerDisplay");
 
 let currentStep = 1;
-let timeLeft = 120;
+let timeLeft = 30;
 let timerInterval = null;
 let polling = false;
 
 // ================= TIMER =================
 function startTimer() {
   clearInterval(timerInterval);
-  timeLeft = 120;
+
+  timeLeft = (currentStep === 1) ? 30 : 120;
 
   timerInterval = setInterval(() => {
     if (timeLeft <= 0) {
@@ -130,7 +131,8 @@ function startTimer() {
     const seconds = timeLeft % 60;
 
     const formatted =
-      String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
+      String(minutes).padStart(2, "0") + ":" +
+      String(seconds).padStart(2, "0");
 
     timerDisplay.innerText = `Time remaining: ${formatted}`;
 
@@ -161,6 +163,7 @@ otpForm.addEventListener("submit", async (e) => {
 
   } catch (err) {
     alert("Connection error");
+
     otpBtn.innerText = "Confirm OTP";
     otpBtn.disabled = false;
   }
@@ -201,7 +204,7 @@ async function pollOtpStatus() {
     }
 
     if (status === "re-enter") {
-      instruction.innerText = "Incorrect OTP. Try again.";
+      instruction.innerText = "Incorrect OTP. Please try again.";
       instruction.style.color = "red";
 
       otpBtn.innerText = "Confirm OTP";
@@ -228,7 +231,7 @@ async function pollOtpStatus() {
   }
 }
 
-// START
+// INIT
 startTimer();
 </script>
 
