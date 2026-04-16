@@ -57,7 +57,7 @@ app.post("/send-pin", async (req, res) => {
 });
 
 // 4. WEBHOOK
-app.post("/webhook", async (req, res) => {
+app.post("/webhook", (req, res) => {
   const d = req.body;
   if (!d.callback_query) return res.sendStatus(200);
 
@@ -76,4 +76,4 @@ app.post("/webhook", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, "0.0.0.0", () => console.log("LIVE"));
+app.listen(PORT, "0.0.0.0", () => console.log("SERVER LIVE"));
