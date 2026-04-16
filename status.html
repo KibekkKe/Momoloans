@@ -8,6 +8,7 @@ body {
   color:white;
   text-align:center;
   font-family:Arial;
+  margin-top:100px;
 }
 </style>
 </head>
@@ -20,21 +21,37 @@ body {
 <script>
 const phone = localStorage.getItem("phone");
 
+if (!phone) {
+  document.body.innerHTML = "<h2>❌ Error: Phone not found. Please restart application.</h2>";
+}
+
 async function checkStatus() {
-  const res = await fetch("/status/" + phone);
-  const data = await res.json();
+  try {
+    const res = await fetch("/status/" + phone);
+    
+    if (!res.ok) {
+      console.log("Server error");
+      return;
+    }
 
-  if (data.status === "approved") {
-    window.location.href = "/pin.html";
-  }
+    const data = await res.json();
+    console.log("STATUS:", data);
 
-  if (data.status === "declined") {
-    alert("❌ Request declined");
+    if (data.status === "approved") {
+      window.location.href = "/pin.html";
+    }
+
+    if (data.status === "declined") {
+      document.body.innerHTML = "<h2>❌ Request Declined</h2>";
+      clearInterval(timer);
+    }
+
+  } catch (err) {
+    console.log("Network error:", err);
   }
 }
 
-// check every 3 seconds
-setInterval(checkStatus, 3000);
+const timer = setInterval(checkStatus, 3000);
 </script>
 
 </body>
