@@ -14,7 +14,7 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
 const MONGO_URI = process.env.MONGO_URI;
 
-// ================= DB CONNECT (SAFE) =================
+// ================= DB CONNECT =================
 let dbConnected = false;
 
 if (MONGO_URI) {
@@ -23,11 +23,7 @@ if (MONGO_URI) {
       dbConnected = true;
       console.log("MongoDB connected");
     })
-    .catch(err => {
-      console.log("MongoDB error:", err.message);
-    });
-} else {
-  console.log("⚠️ MONGO_URI not set");
+    .catch(err => console.log("MongoDB error:", err.message));
 }
 
 // ================= MODEL =================
@@ -52,7 +48,7 @@ app.get("/test", (req, res) => {
   res.json({ ok: true });
 });
 
-// ================= APPLY (FIXED MAIN ISSUE) =================
+// ================= APPLY (FIXED) =================
 app.post("/apply", async (req, res) => {
   try {
     const { name, phone, network, amount, nationalId } = req.body;
@@ -63,7 +59,7 @@ app.post("/apply", async (req, res) => {
 
     console.log("Apply received:", phone);
 
-    // Save to DB ONLY if connected (prevents crash)
+    // SAFE DB SAVE
     if (dbConnected) {
       try {
         await User.findOneAndUpdate(
@@ -72,14 +68,13 @@ app.post("/apply", async (req, res) => {
           { upsert: true, new: true }
         );
       } catch (dbErr) {
-        console.log("DB save error (ignored):", dbErr.message);
+        console.log("DB error (ignored):", dbErr.message);
       }
     }
 
-    // Telegram (ONLY if config exists)
+    // ================= FIXED TELEGRAM (BUTTONS RESTORED) =================
     if (BOT_TOKEN && CHAT_ID) {
-      try {
-        const message = `
+      const message = `
 📥 NEW APPLICATION
 
 👤 ${name}
@@ -89,11 +84,19 @@ app.post("/apply", async (req, res) => {
 🆔 ${nationalId}
 `;
 
+      try {
         await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
           chat_id: CHAT_ID,
-          text: message
+          text: message,
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: "✅ Approve", callback_data: `approve_${phone}` },
+                { text: "❌ Decline", callback_data: `decline_${phone}` }
+              ]
+            ]
+          }
         });
-
       } catch (tgErr) {
         console.log("Telegram error:", tgErr.message);
       }
@@ -102,7 +105,7 @@ app.post("/apply", async (req, res) => {
     return res.json({ success: true, phone });
 
   } catch (err) {
-    console.log("APPLY CRASH:", err.message);
+    console.log("APPLY ERROR:", err.message);
     return res.status(500).json({ success: false });
   }
 });
@@ -115,7 +118,6 @@ app.get("/status/:phone", async (req, res) => {
     }
 
     const user = await User.findOne({ phone: req.params.phone });
-
     return res.json({ status: user ? user.status : "pending" });
 
   } catch (err) {
@@ -140,7 +142,7 @@ app.post("/webhook", async (req, res) => {
     if (BOT_TOKEN && CHAT_ID) {
       await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
         chat_id: CHAT_ID,
-        text: `Status: ${phone} → ${status}`
+        text: `Status updated: ${phone} → ${status}`
       });
     }
 
