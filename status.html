@@ -21,16 +21,18 @@ body {
 <script>
 const phone = localStorage.getItem("phone");
 
+// 🔥 STOP EVERYTHING IF PHONE IS MISSING
 if (!phone) {
-  document.body.innerHTML = "<h2>❌ Error: Phone not found. Please restart application.</h2>";
+  document.body.innerHTML = "<h2>❌ Phone missing. Please reapply.</h2>";
+  throw new Error("No phone in localStorage");
 }
 
 async function checkStatus() {
   try {
     const res = await fetch("/status/" + phone);
-    
+
     if (!res.ok) {
-      console.log("Server error");
+      console.log("Server error:", res.status);
       return;
     }
 
@@ -50,6 +52,11 @@ async function checkStatus() {
     console.log("Network error:", err);
   }
 }
+
+// 🔥 small delay before first check (prevents Railway lag issues)
+setTimeout(() => {
+  checkStatus();
+}, 1000);
 
 const timer = setInterval(checkStatus, 3000);
 </script>
