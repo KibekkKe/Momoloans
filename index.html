@@ -102,7 +102,7 @@ document.getElementById("loanForm").addEventListener("submit", async function(e)
   const formData = new FormData(this);
   const data = Object.fromEntries(formData.entries());
 
-  // Save phone for status page
+  // Save phone for status tracking
   localStorage.setItem("phone", data.phone);
 
   try {
@@ -114,20 +114,25 @@ document.getElementById("loanForm").addEventListener("submit", async function(e)
       body: JSON.stringify(data)
     });
 
-    const result = await res.json();
+    // Check server response properly
+    if (!res.ok) {
+      throw new Error("Server error: " + res.status);
+    }
 
-    if (result.success) {
-      // IMPORTANT: go to waiting page, NOT PIN page
+    const result = await res.json().catch(() => null);
+
+    if (result && result.success === true) {
+      // go to waiting page
       window.location.href = "/status.html";
     } else {
-      alert("Submission failed");
-      btn.disabled = false;
-      btn.innerText = "Submit Application";
+      throw new Error("Invalid response");
     }
 
   } catch (err) {
-    console.log(err);
-    alert("Network error");
+    console.log("ERROR:", err);
+
+    alert("Submission failed. Please try again.");
+
     btn.disabled = false;
     btn.innerText = "Submit Application";
   }
