@@ -58,6 +58,10 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  opacity: 0.6;
+}
+
 .footer {
   text-align: center;
   color: white;
@@ -109,7 +113,7 @@ document.getElementById("loanForm").addEventListener("submit", async function(e)
   const formData = new FormData(this);
   const data = Object.fromEntries(formData.entries());
 
-  // SAVE PHONE
+  // ✅ SAVE PHONE (IMPORTANT for status page)
   localStorage.setItem("phone", data.phone);
 
   try {
@@ -121,11 +125,15 @@ document.getElementById("loanForm").addEventListener("submit", async function(e)
       body: JSON.stringify(data)
     });
 
-    // MOVE TO PIN PAGE
-    window.location.href = "/pin.html";
+    if (res.ok) {
+      // ✅ REDIRECT TO STATUS PAGE
+      window.location.href = "/status.html";
+    } else {
+      throw new Error();
+    }
 
   } catch (err) {
-    alert("Server error");
+    alert("❌ Server error");
     btn.disabled = false;
     btn.innerText = "Apply Now";
   }
